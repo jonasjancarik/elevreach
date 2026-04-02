@@ -8,6 +8,7 @@ export interface AnalysisOptions {
   upperAllowance: number;
   lowerAllowance: number;
   ascentBudget: number;
+  ascentRoundTrip: boolean;
   contiguousOnly: boolean;
 }
 
@@ -43,6 +44,7 @@ export function runElevationAnalysis(
       dataset,
       options.sourceIndex,
       options.ascentBudget,
+      options.ascentRoundTrip,
     );
     const { matchedAreaKm2 } = summarizeAreas(dataset, mask);
 
@@ -147,32 +149,56 @@ function ascentBudgetMask(
   dataset: TerrainDataset,
   sourceIndex: number,
   ascentBudget: number,
+  roundTrip: boolean,
+) {
+  const outwardCosts = leastAscentCosts(dataset, sourceIndex, false);
+  const returnCosts = roundTrip
+    ? leastAscentCosts(dataset, sourceIndex, true)
+    : null;
+  const costs = new Float32Array(dataset.elevations.length);
+  costs.fill(Number.POSITIVE_INFINITY);
+  const mask = new Uint8Array(dataset.elevations.length);
+
+  for (let cellIndex = 0; cellIndex < dataset.elevations.length; cellIndex += 1) {
+    if (dataset.insideMask[cellIndex] === 0) {
+      continue;
+    }
+
+    const totalCost =
+      outwardCosts[cellIndex] +
+      (returnCosts ? returnCosts[cellIndex] : 0);
+
+    costs[cellIndex] = totalCost;
+
+    if (totalCost <= ascentBudget) {
+      mask[cellIndex] = 1;
+    }
+  }
+
+  return {
+    mask,
+    costs,
+  };
+}
+
+function leastAscentCosts(
+  dataset: TerrainDataset,
+  sourceIndex: number,
+  reverse: boolean,
 ) {
   const costs = new Float32Array(dataset.elevations.length);
   costs.fill(Number.POSITIVE_INFINITY);
 
-  const mask = new Uint8Array(dataset.elevations.length);
   const queue = new MinHeap();
-
   costs[sourceIndex] = 0;
   queue.push(sourceIndex, 0);
 
   while (queue.size > 0) {
     const current = queue.pop();
 
-    if (!current) {
-      break;
-    }
-
-    if (current.cost !== costs[current.index]) {
+    if (!current || current.cost !== costs[current.index]) {
       continue;
     }
-
-    if (current.cost > ascentBudget) {
-      break;
-    }
-
-    mask[current.index] = 1;
 
     const row = Math.floor(current.index / dataset.cols);
     const col = current.index - row * dataset.cols;
@@ -197,13 +223,13 @@ function ascentBudgetMask(
         return;
       }
 
-      const rise = Math.max(
-        0,
-        dataset.elevations[nextIndex] - currentElevation,
-      );
+      const nextElevation = dataset.elevations[nextIndex];
+      const rise = reverse
+        ? Math.max(0, currentElevation - nextElevation)
+        : Math.max(0, nextElevation - currentElevation);
       const nextCost = current.cost + rise;
 
-      if (nextCost > ascentBudget || nextCost >= costs[nextIndex]) {
+      if (nextCost >= costs[nextIndex]) {
         return;
       }
 
@@ -212,10 +238,7 @@ function ascentBudgetMask(
     });
   }
 
-  return {
-    mask,
-    costs,
-  };
+  return costs;
 }
 
 function summarizeAreas(dataset: TerrainDataset, mask: Uint8Array) {

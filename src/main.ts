@@ -29,6 +29,7 @@ interface AppState {
   upperAllowance: number;
   lowerAllowance: number;
   ascentBudget: number;
+  ascentRoundTrip: boolean;
   contiguousOnly: boolean;
 }
 
@@ -44,7 +45,7 @@ app.innerHTML = `
       <p class="eyebrow">Prague elevation slices</p>
       <h1>Click Prague. See how much of the city shares that height.</h1>
       <p class="lede">
-        Same-height bands for flat trips. Elevation ceilings for rough downhill intuition. Cumulative ascent for a more honest “how hard is the best terrain path”.
+        Same-height bands for flat trips. Elevation ceilings for rough downhill intuition. Cumulative ascent for a more honest one-way or back-and-forth terrain budget.
       </p>
 
       <div class="preset-bar" aria-label="Presets">
@@ -96,6 +97,18 @@ app.innerHTML = `
           <input id="budget-range" type="range" min="0" max="160" step="5" value="25" />
           <small id="budget-hint">Used only in cumulative ascent mode.</small>
         </label>
+
+        <fieldset class="mode-switch sub-switch">
+          <legend>Ascent budget applies to</legend>
+          <label>
+            <input type="radio" name="ascent-scope" value="one-way" checked />
+            <span>One way</span>
+          </label>
+          <label>
+            <input type="radio" name="ascent-scope" value="round-trip" />
+            <span>Back and forth</span>
+          </label>
+        </fieldset>
 
         <label class="toggle">
           <input id="connected-toggle" type="checkbox" checked />
@@ -154,6 +167,9 @@ const budgetRange = must<HTMLInputElement>('#budget-range');
 const budgetOutput = must<HTMLOutputElement>('#budget-output');
 const lowerHint = must<HTMLElement>('#lower-hint');
 const budgetHint = must<HTMLElement>('#budget-hint');
+const ascentScopeInputs = Array.from(
+  document.querySelectorAll<HTMLInputElement>('input[name="ascent-scope"]'),
+);
 const connectedToggle = must<HTMLInputElement>('#connected-toggle');
 const statusNode = must<HTMLElement>('#status');
 const elevationStat = must<HTMLElement>('#elevation-stat');
@@ -173,6 +189,7 @@ const state: AppState = {
   upperAllowance: Number(upperRange.value),
   lowerAllowance: Number(lowerRange.value),
   ascentBudget: Number(budgetRange.value),
+  ascentRoundTrip: false,
   contiguousOnly: connectedToggle.checked,
 };
 
@@ -254,6 +271,7 @@ function syncStateFromControls() {
   state.upperAllowance = Number(upperRange.value);
   state.lowerAllowance = Number(lowerRange.value);
   state.ascentBudget = Number(budgetRange.value);
+  state.ascentRoundTrip = parseAscentScope() === 'round-trip';
   state.contiguousOnly =
     state.mode === 'ascent' ? true : connectedToggle.checked;
 
@@ -266,6 +284,9 @@ function syncStateFromControls() {
   lowerRange.disabled = state.mode !== 'band';
   budgetRange.disabled = state.mode !== 'ascent';
   connectedToggle.disabled = state.mode === 'ascent';
+  ascentScopeInputs.forEach((input) => {
+    input.disabled = state.mode !== 'ascent';
+  });
 
   if (state.mode === 'ascent') {
     connectedToggle.checked = true;
@@ -279,7 +300,9 @@ function syncStateFromControls() {
         : 'Drop limit is not used in cumulative ascent mode.';
   budgetHint.textContent =
     state.mode === 'ascent'
-      ? 'Least-ascent terrain path only. Long flat detours are still cheap here.'
+      ? state.ascentRoundTrip
+        ? 'Counts uphill meters there and uphill meters back, each on the least-ascent terrain path.'
+        : 'Least-ascent terrain path only. Long flat detours are still cheap here.'
       : 'Used only in cumulative ascent mode.';
 }
 
@@ -291,6 +314,7 @@ function applyPreset(preset: PresetKey) {
         upper: 5,
         lower: 5,
         ascentBudget: 25,
+        ascentRoundTrip: false,
         contiguous: true,
       });
       break;
@@ -300,6 +324,7 @@ function applyPreset(preset: PresetKey) {
         upper: 15,
         lower: 15,
         ascentBudget: 25,
+        ascentRoundTrip: false,
         contiguous: true,
       });
       break;
@@ -309,6 +334,7 @@ function applyPreset(preset: PresetKey) {
         upper: 5,
         lower: 5,
         ascentBudget: 25,
+        ascentRoundTrip: false,
         contiguous: true,
       });
       break;
@@ -318,6 +344,7 @@ function applyPreset(preset: PresetKey) {
         upper: 5,
         lower: 5,
         ascentBudget: 25,
+        ascentRoundTrip: false,
         contiguous: true,
       });
       break;
@@ -331,6 +358,7 @@ function setControls(options: {
   upper: number;
   lower: number;
   ascentBudget: number;
+  ascentRoundTrip: boolean;
   contiguous: boolean;
 }) {
   const modeInput = controls.querySelector<HTMLInputElement>(
@@ -344,6 +372,14 @@ function setControls(options: {
   upperRange.value = String(options.upper);
   lowerRange.value = String(options.lower);
   budgetRange.value = String(options.ascentBudget);
+  const ascentScopeInput = controls.querySelector<HTMLInputElement>(
+    `input[name="ascent-scope"][value="${options.ascentRoundTrip ? 'round-trip' : 'one-way'}"]`,
+  );
+
+  if (ascentScopeInput) {
+    ascentScopeInput.checked = true;
+  }
+
   connectedToggle.checked = options.contiguous;
   syncStateFromControls();
 }
@@ -426,6 +462,7 @@ function renderVisualization() {
     upperAllowance: state.upperAllowance,
     lowerAllowance: state.lowerAllowance,
     ascentBudget: state.ascentBudget,
+    ascentRoundTrip: state.ascentRoundTrip,
     contiguousOnly: state.contiguousOnly,
   });
 
@@ -460,7 +497,9 @@ function updateStats(dataset: TerrainDataset, analysis: AnalysisResult) {
     state.mode === 'ceiling'
       ? `Cells at ${sourceElevation.toFixed(0)} m + ${state.upperAllowance} m or lower`
       : state.mode === 'ascent'
-        ? `Cells reachable on the least-ascent terrain path with total uphill ≤ ${state.ascentBudget} m`
+        ? state.ascentRoundTrip
+          ? `Cells where uphill there + uphill back, on least-ascent terrain paths, stays ≤ ${state.ascentBudget} m`
+          : `Cells reachable on the least-ascent terrain path with total uphill ≤ ${state.ascentBudget} m`
         : `Cells inside ${sourceElevation.toFixed(0)} m - ${state.lowerAllowance} m / + ${state.upperAllowance} m`;
   const scope =
     state.mode === 'ascent'
@@ -470,7 +509,9 @@ function updateStats(dataset: TerrainDataset, analysis: AnalysisResult) {
         : 'across all of Prague';
   const caveat =
     state.mode === 'ascent'
-      ? 'Terrain path only; road detours can add more climbing.'
+      ? state.ascentRoundTrip
+        ? 'Terrain path only; best outbound and return paths can differ, and roads may be worse.'
+        : 'Terrain path only; road detours can add more climbing.'
       : state.mode === 'ceiling'
         ? 'Useful as a ceiling, not a promise of an easy ride.'
         : '';
@@ -520,4 +561,12 @@ function parseMode(value: string | undefined): AnalysisMode {
   }
 
   return 'band';
+}
+
+function parseAscentScope() {
+  const selected = controls.querySelector<HTMLInputElement>(
+    'input[name="ascent-scope"]:checked',
+  );
+
+  return selected?.value === 'round-trip' ? 'round-trip' : 'one-way';
 }
