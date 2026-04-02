@@ -2,27 +2,29 @@ import L, { type LeafletMouseEvent } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 
+import { type AnalysisMode, type AnalysisResult, runElevationAnalysis } from './lib/analysis';
+import { setupAppShell } from './lib/app-shell';
+import {
+  DEFAULT_CITY_QUERY,
+  loadBundledBoundary,
+  searchCityBoundary,
+  type BoundaryGeoJson,
+} from './lib/boundary';
+import { renderAnalysisOverlay } from './lib/render';
 import {
   cellLatLng,
   elevationAtIndex,
   findNearestInsideIndex,
   indexFromLatLng,
-  loadPragueBoundary,
   loadTerrainDataset,
-  type BoundaryGeoJson,
   type TerrainDataset,
 } from './lib/terrain';
-import {
-  runElevationAnalysis,
-  type AnalysisMode,
-  type AnalysisResult,
-} from './lib/analysis';
-import { renderAnalysisOverlay } from './lib/render';
 
 type PresetKey = 'flat-5' | 'flat-15' | 'ceiling-5' | 'ascent-25';
 
 interface AppState {
   boundary: BoundaryGeoJson | null;
+  cityLabel: string;
   dataset: TerrainDataset | null;
   sourceIndex: number | null;
   mode: AnalysisMode;
@@ -39,158 +41,19 @@ if (!app) {
   throw new Error('Missing #app mount point');
 }
 
-app.innerHTML = `
-  <div class="shell">
-    <aside class="panel">
-      <p class="eyebrow">Prague elevation slices</p>
-      <h1>Click Prague. See how much of the city shares that height.</h1>
-      <p class="lede">
-        Same-height bands for flat trips. Elevation ceilings for rough downhill intuition. Cumulative ascent for a more honest one-way or back-and-forth terrain budget.
-      </p>
-
-      <div class="preset-bar" aria-label="Presets">
-        <button type="button" class="preset active" data-preset="flat-5">Flat ±5 m</button>
-        <button type="button" class="preset" data-preset="flat-15">Flat ±15 m</button>
-        <button type="button" class="preset" data-preset="ceiling-5">Ceiling +5 m</button>
-        <button type="button" class="preset" data-preset="ascent-25">Ascent ≤25 m</button>
-      </div>
-
-      <form class="controls" id="controls">
-        <fieldset class="mode-switch">
-          <legend>Mode</legend>
-          <label>
-            <input type="radio" name="mode" value="band" checked />
-            <span>Elevation band</span>
-          </label>
-          <label>
-            <input type="radio" name="mode" value="ceiling" />
-            <span>Elevation ceiling</span>
-          </label>
-          <label>
-            <input type="radio" name="mode" value="ascent" />
-            <span>Cumulative ascent</span>
-          </label>
-        </fieldset>
-
-        <label class="control">
-          <div class="control-head">
-            <span>Allowed climb</span>
-            <output id="upper-output" for="upper-range">5 m</output>
-          </div>
-          <input id="upper-range" type="range" min="0" max="40" step="1" value="5" />
-        </label>
-
-        <label class="control">
-          <div class="control-head">
-            <span>Allowed drop</span>
-            <output id="lower-output" for="lower-range">5 m</output>
-          </div>
-          <input id="lower-range" type="range" min="0" max="80" step="1" value="5" />
-          <small id="lower-hint">Used only in band mode.</small>
-        </label>
-
-        <label class="control">
-          <div class="control-head">
-            <span>Cumulative ascent budget</span>
-            <output id="budget-output" for="budget-range">25 m</output>
-          </div>
-          <input id="budget-range" type="range" min="0" max="160" step="5" value="25" />
-          <small id="budget-hint">Used only in cumulative ascent mode.</small>
-        </label>
-
-        <fieldset class="mode-switch sub-switch">
-          <legend>Ascent budget applies to</legend>
-          <label>
-            <input type="radio" name="ascent-scope" value="one-way" checked />
-            <span>One way</span>
-          </label>
-          <label>
-            <input type="radio" name="ascent-scope" value="round-trip" />
-            <span>Back and forth</span>
-          </label>
-        </fieldset>
-
-        <label class="toggle">
-          <input id="connected-toggle" type="checkbox" checked />
-          <span>Keep only the connected area from the picked point</span>
-        </label>
-      </form>
-
-      <div class="stats">
-        <article>
-          <span class="stat-label">Anchor elevation</span>
-          <strong id="elevation-stat">…</strong>
-        </article>
-        <article>
-          <span class="stat-label">Matched share of Prague</span>
-          <strong id="share-stat">…</strong>
-        </article>
-        <article>
-          <span class="stat-label">Approx area</span>
-          <strong id="area-stat">…</strong>
-        </article>
-        <article>
-          <span class="stat-label">Anchor coordinates</span>
-          <strong id="coords-stat">…</strong>
-        </article>
-      </div>
-
-      <p id="rule-summary" class="rule-summary">Loading terrain…</p>
-      <p class="note">
-        Terrain-only model. Cumulative ascent uses the least-uphill terrain path, not real streets, bridges, or intersections.
-      </p>
-      <p class="sources">
-        Basemap: OpenStreetMap. Boundary: OpenStreetMap/Nominatim. Elevation: Terrarium tiles.
-      </p>
-    </aside>
-
-    <section class="stage">
-      <div id="map" aria-label="Prague elevation map"></div>
-      <div class="map-chrome">
-        <div class="chip">Click map to move anchor</div>
-        <div class="legend">
-          <span class="legend-swatch"></span>
-          <span>matched cells</span>
-        </div>
-        <div id="status" class="status is-loading">Loading Prague boundary…</div>
-      </div>
-    </section>
-  </div>
-`;
-
-const controls = must<HTMLFormElement>('#controls');
-const upperRange = must<HTMLInputElement>('#upper-range');
-const lowerRange = must<HTMLInputElement>('#lower-range');
-const upperOutput = must<HTMLOutputElement>('#upper-output');
-const lowerOutput = must<HTMLOutputElement>('#lower-output');
-const budgetRange = must<HTMLInputElement>('#budget-range');
-const budgetOutput = must<HTMLOutputElement>('#budget-output');
-const lowerHint = must<HTMLElement>('#lower-hint');
-const budgetHint = must<HTMLElement>('#budget-hint');
-const ascentScopeInputs = Array.from(
-  document.querySelectorAll<HTMLInputElement>('input[name="ascent-scope"]'),
-);
-const connectedToggle = must<HTMLInputElement>('#connected-toggle');
-const statusNode = must<HTMLElement>('#status');
-const elevationStat = must<HTMLElement>('#elevation-stat');
-const shareStat = must<HTMLElement>('#share-stat');
-const areaStat = must<HTMLElement>('#area-stat');
-const coordsStat = must<HTMLElement>('#coords-stat');
-const ruleSummary = must<HTMLElement>('#rule-summary');
-const presetButtons = Array.from(
-  document.querySelectorAll<HTMLButtonElement>('[data-preset]'),
-);
+const nodes = setupAppShell(app, DEFAULT_CITY_QUERY);
 
 const state: AppState = {
   boundary: null,
+  cityLabel: DEFAULT_CITY_QUERY,
   dataset: null,
   sourceIndex: null,
   mode: 'band',
-  upperAllowance: Number(upperRange.value),
-  lowerAllowance: Number(lowerRange.value),
-  ascentBudget: Number(budgetRange.value),
+  upperAllowance: Number(nodes.upperRange.value),
+  lowerAllowance: Number(nodes.lowerRange.value),
+  ascentBudget: Number(nodes.budgetRange.value),
   ascentRoundTrip: false,
-  contiguousOnly: connectedToggle.checked,
+  contiguousOnly: nodes.connectedToggle.checked,
 };
 
 const map = L.map('map', {
@@ -209,31 +72,46 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 17,
 }).addTo(map);
 
+let boundaryLayer: L.GeoJSON | null = null;
 let sourceMarker: L.CircleMarker | null = null;
 let overlayLayer: L.ImageOverlay | null = null;
 let renderScheduled = false;
+let activeLoadId = 0;
 
 bootstrap().catch((error) => {
   console.error(error);
   setStatus(
-    error instanceof Error ? error.message : 'Failed to load Prague terrain.',
+    error instanceof Error ? error.message : 'Failed to load city terrain.',
     true,
   );
 });
 
-controls.addEventListener('input', () => {
+nodes.controls.addEventListener('input', () => {
   syncStateFromControls();
   updatePresetState(null);
   scheduleRender();
 });
 
-controls.addEventListener('change', () => {
+nodes.controls.addEventListener('change', () => {
   syncStateFromControls();
   updatePresetState(null);
   scheduleRender();
 });
 
-presetButtons.forEach((button) => {
+nodes.searchForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+
+  const query = nodes.searchInput.value.trim();
+
+  if (!query) {
+    setStatus('Enter a city, ideally "City, Country".', true);
+    return;
+  }
+
+  void loadCity(query, false);
+});
+
+nodes.presetButtons.forEach((button) => {
   button.addEventListener('click', () => {
     applyPreset(button.dataset.preset as PresetKey);
     scheduleRender();
@@ -251,7 +129,12 @@ map.on('click', (event: LeafletMouseEvent) => {
     event.latlng.lat,
   );
   const sourceIndex =
-    candidate ?? findNearestInsideIndex(state.dataset, state.dataset.cols / 2, state.dataset.rows / 2);
+    candidate ??
+    findNearestInsideIndex(
+      state.dataset,
+      state.dataset.cols / 2,
+      state.dataset.rows / 2,
+    );
 
   if (sourceIndex === null) {
     return;
@@ -262,43 +145,146 @@ map.on('click', (event: LeafletMouseEvent) => {
   scheduleRender();
 });
 
+async function bootstrap() {
+  syncStateFromControls();
+  await loadCity(DEFAULT_CITY_QUERY, true);
+}
+
+async function loadCity(query: string, useBundled: boolean) {
+  const loadId = ++activeLoadId;
+  setSearchLoading(true);
+  setStatus(useBundled ? 'Loading default city boundary…' : `Loading ${query}…`);
+  clearVisualization();
+
+  try {
+    const loadedBoundary = useBundled
+      ? await loadBundledBoundary()
+      : await searchCityBoundary(query);
+
+    if (loadId !== activeLoadId) {
+      return;
+    }
+
+    state.boundary = loadedBoundary.boundary;
+    state.cityLabel = loadedBoundary.label;
+    nodes.cityLabel.textContent = loadedBoundary.label;
+    document.title = `Elevation Slices: ${loadedBoundary.label}`;
+    renderBoundary(loadedBoundary.boundary);
+
+    setStatus(`Loading elevation for ${loadedBoundary.label}…`);
+
+    const dataset = await loadTerrainDataset(loadedBoundary.boundary, {
+      zoom: 12,
+      sampleStep: 2,
+      onProgress: (loaded, total) => {
+        if (loadId !== activeLoadId) {
+          return;
+        }
+
+        setStatus(`Loading elevation tiles for ${loadedBoundary.label}… ${loaded}/${total}`);
+      },
+    });
+
+    if (loadId !== activeLoadId) {
+      return;
+    }
+
+    state.dataset = dataset;
+    state.sourceIndex = pickDefaultAnchor(dataset, loadedBoundary.boundary);
+    nodes.searchInput.value = loadedBoundary.query;
+
+    if (state.sourceIndex === null) {
+      throw new Error(`Could not find a valid anchor point inside ${loadedBoundary.label}.`);
+    }
+
+    setSourceMarker(state.sourceIndex);
+    renderVisualization();
+  } catch (error) {
+    if (loadId !== activeLoadId) {
+      return;
+    }
+
+    console.error(error);
+    setStatus(
+      error instanceof Error ? error.message : 'Failed to load city terrain.',
+      true,
+    );
+  } finally {
+    if (loadId === activeLoadId) {
+      setSearchLoading(false);
+    }
+  }
+}
+
+function renderBoundary(boundary: BoundaryGeoJson) {
+  boundaryLayer?.remove();
+
+  boundaryLayer = L.geoJSON(boundary, {
+    style: {
+      color: '#101a1d',
+      weight: 2,
+      fillOpacity: 0,
+      opacity: 0.7,
+      dashArray: '6 8',
+    },
+  }).addTo(map);
+
+  const bbox = boundary.bbox;
+  map.fitBounds(
+    [
+      [bbox[1], bbox[0]],
+      [bbox[3], bbox[2]],
+    ],
+    { padding: [24, 24] },
+  );
+}
+
+function clearVisualization() {
+  state.dataset = null;
+  state.sourceIndex = null;
+  overlayLayer?.remove();
+  overlayLayer = null;
+  sourceMarker?.remove();
+  sourceMarker = null;
+}
+
 function syncStateFromControls() {
-  const modeInput = controls.querySelector<HTMLInputElement>(
+  const modeInput = nodes.controls.querySelector<HTMLInputElement>(
     'input[name="mode"]:checked',
   );
 
   state.mode = parseMode(modeInput?.value);
-  state.upperAllowance = Number(upperRange.value);
-  state.lowerAllowance = Number(lowerRange.value);
-  state.ascentBudget = Number(budgetRange.value);
+  state.upperAllowance = Number(nodes.upperRange.value);
+  state.lowerAllowance = Number(nodes.lowerRange.value);
+  state.ascentBudget = Number(nodes.budgetRange.value);
   state.ascentRoundTrip = parseAscentScope() === 'round-trip';
   state.contiguousOnly =
-    state.mode === 'ascent' ? true : connectedToggle.checked;
+    state.mode === 'ascent' ? true : nodes.connectedToggle.checked;
 
-  upperOutput.textContent = `${state.upperAllowance} m`;
-  lowerOutput.textContent =
+  nodes.upperOutput.textContent = `${state.upperAllowance} m`;
+  nodes.lowerOutput.textContent =
     state.mode === 'band' ? `${state.lowerAllowance} m` : '∞ drop';
-  budgetOutput.textContent = `${state.ascentBudget} m`;
+  nodes.budgetOutput.textContent = `${state.ascentBudget} m`;
 
-  upperRange.disabled = state.mode === 'ascent';
-  lowerRange.disabled = state.mode !== 'band';
-  budgetRange.disabled = state.mode !== 'ascent';
-  connectedToggle.disabled = state.mode === 'ascent';
-  ascentScopeInputs.forEach((input) => {
+  nodes.upperRange.disabled = state.mode === 'ascent';
+  nodes.lowerRange.disabled = state.mode !== 'band';
+  nodes.budgetRange.disabled = state.mode !== 'ascent';
+  nodes.connectedToggle.disabled = state.mode === 'ascent';
+  nodes.ascentScopeInputs.forEach((input) => {
     input.disabled = state.mode !== 'ascent';
   });
 
   if (state.mode === 'ascent') {
-    connectedToggle.checked = true;
+    nodes.connectedToggle.checked = true;
   }
 
-  lowerHint.textContent =
+  nodes.lowerHint.textContent =
     state.mode === 'band'
       ? 'Band mode keeps cells inside the upper and lower elevation limits.'
       : state.mode === 'ceiling'
         ? 'Ceiling mode includes every lower cell, which can still understate repeated climbs.'
         : 'Drop limit is not used in cumulative ascent mode.';
-  budgetHint.textContent =
+  nodes.budgetHint.textContent =
     state.mode === 'ascent'
       ? state.ascentRoundTrip
         ? 'Counts uphill meters there and uphill meters back, each on the least-ascent terrain path.'
@@ -361,7 +347,7 @@ function setControls(options: {
   ascentRoundTrip: boolean;
   contiguous: boolean;
 }) {
-  const modeInput = controls.querySelector<HTMLInputElement>(
+  const modeInput = nodes.controls.querySelector<HTMLInputElement>(
     `input[name="mode"][value="${options.mode}"]`,
   );
 
@@ -369,10 +355,11 @@ function setControls(options: {
     modeInput.checked = true;
   }
 
-  upperRange.value = String(options.upper);
-  lowerRange.value = String(options.lower);
-  budgetRange.value = String(options.ascentBudget);
-  const ascentScopeInput = controls.querySelector<HTMLInputElement>(
+  nodes.upperRange.value = String(options.upper);
+  nodes.lowerRange.value = String(options.lower);
+  nodes.budgetRange.value = String(options.ascentBudget);
+
+  const ascentScopeInput = nodes.controls.querySelector<HTMLInputElement>(
     `input[name="ascent-scope"][value="${options.ascentRoundTrip ? 'round-trip' : 'one-way'}"]`,
   );
 
@@ -380,12 +367,12 @@ function setControls(options: {
     ascentScopeInput.checked = true;
   }
 
-  connectedToggle.checked = options.contiguous;
+  nodes.connectedToggle.checked = options.contiguous;
   syncStateFromControls();
 }
 
 function updatePresetState(active: PresetKey | null) {
-  presetButtons.forEach((button) => {
+  nodes.presetButtons.forEach((button) => {
     button.classList.toggle('active', button.dataset.preset === active);
   });
 }
@@ -401,54 +388,6 @@ function scheduleRender() {
     renderScheduled = false;
     renderVisualization();
   });
-}
-
-async function bootstrap() {
-  syncStateFromControls();
-
-  const boundary = await loadPragueBoundary();
-  state.boundary = boundary;
-
-  const bbox = boundary.bbox;
-  map.fitBounds(
-    [
-      [bbox[1], bbox[0]],
-      [bbox[3], bbox[2]],
-    ],
-    { padding: [24, 24] },
-  );
-
-  L.geoJSON(boundary, {
-    style: {
-      color: '#101a1d',
-      weight: 2,
-      fillOpacity: 0,
-      opacity: 0.7,
-      dashArray: '6 8',
-    },
-  }).addTo(map);
-
-  setStatus('Loading Terrarium elevation tiles…');
-
-  const dataset = await loadTerrainDataset(boundary, {
-    zoom: 12,
-    sampleStep: 2,
-    onProgress: (loaded, total) => {
-      setStatus(`Loading elevation tiles… ${loaded}/${total}`);
-    },
-  });
-
-  state.dataset = dataset;
-  state.sourceIndex =
-    indexFromLatLng(dataset, 14.4378, 50.0755) ??
-    findNearestInsideIndex(dataset, dataset.cols / 2, dataset.rows / 2);
-
-  if (state.sourceIndex === null) {
-    throw new Error('Could not find a valid start point inside Prague.');
-  }
-
-  setSourceMarker(state.sourceIndex);
-  renderVisualization();
 }
 
 function renderVisualization() {
@@ -484,14 +423,21 @@ function renderVisualization() {
 }
 
 function updateStats(dataset: TerrainDataset, analysis: AnalysisResult) {
-  const sourcePoint = cellLatLng(dataset, state.sourceIndex!);
-  const sourceElevation = elevationAtIndex(dataset, state.sourceIndex!);
-  const share = analysis.insideAreaKm2 === 0 ? 0 : analysis.matchedAreaKm2 / analysis.insideAreaKm2;
+  if (state.sourceIndex === null) {
+    return;
+  }
 
-  elevationStat.textContent = `${sourceElevation.toFixed(0)} m`;
-  shareStat.textContent = `${(share * 100).toFixed(1)}%`;
-  areaStat.textContent = `${analysis.matchedAreaKm2.toFixed(1)} km²`;
-  coordsStat.textContent = `${sourcePoint.lat.toFixed(4)}, ${sourcePoint.lng.toFixed(4)}`;
+  const sourcePoint = cellLatLng(dataset, state.sourceIndex);
+  const sourceElevation = elevationAtIndex(dataset, state.sourceIndex);
+  const share =
+    analysis.insideAreaKm2 === 0
+      ? 0
+      : analysis.matchedAreaKm2 / analysis.insideAreaKm2;
+
+  nodes.elevationStat.textContent = `${sourceElevation.toFixed(0)} m`;
+  nodes.shareStat.textContent = `${(share * 100).toFixed(1)}%`;
+  nodes.areaStat.textContent = `${analysis.matchedAreaKm2.toFixed(1)} km²`;
+  nodes.coordsStat.textContent = `${sourcePoint.lat.toFixed(4)}, ${sourcePoint.lng.toFixed(4)}`;
 
   const baseRule =
     state.mode === 'ceiling'
@@ -506,7 +452,7 @@ function updateStats(dataset: TerrainDataset, analysis: AnalysisResult) {
       ? 'from the anchor'
       : state.contiguousOnly
         ? 'connected to the anchor'
-        : 'across all of Prague';
+        : `across ${state.cityLabel}`;
   const caveat =
     state.mode === 'ascent'
       ? state.ascentRoundTrip
@@ -516,7 +462,7 @@ function updateStats(dataset: TerrainDataset, analysis: AnalysisResult) {
         ? 'Useful as a ceiling, not a promise of an easy ride.'
         : '';
 
-  ruleSummary.textContent = `${baseRule}. Showing area ${scope}.${caveat ? ` ${caveat}` : ''}`;
+  nodes.ruleSummary.textContent = `${baseRule}. Showing area ${scope}.${caveat ? ` ${caveat}` : ''}`;
 }
 
 function setSourceMarker(index: number) {
@@ -540,19 +486,26 @@ function setSourceMarker(index: number) {
 }
 
 function setStatus(message: string, isError = false) {
-  statusNode.textContent = message;
-  statusNode.classList.toggle('is-loading', !isError && message !== 'Ready');
-  statusNode.classList.toggle('is-error', isError);
+  nodes.statusNode.textContent = message;
+  nodes.statusNode.classList.toggle('is-loading', !isError && message !== 'Ready');
+  nodes.statusNode.classList.toggle('is-error', isError);
 }
 
-function must<TElement extends Element>(selector: string) {
-  const node = document.querySelector<TElement>(selector);
+function setSearchLoading(isLoading: boolean) {
+  nodes.searchButton.disabled = isLoading;
+  nodes.searchInput.disabled = isLoading;
+  nodes.searchButton.textContent = isLoading ? 'Loading…' : 'Load city';
+}
 
-  if (!node) {
-    throw new Error(`Missing node: ${selector}`);
-  }
+function pickDefaultAnchor(dataset: TerrainDataset, boundary: BoundaryGeoJson) {
+  const [minLng, minLat, maxLng, maxLat] = boundary.bbox;
+  const centerLng = (minLng + maxLng) / 2;
+  const centerLat = (minLat + maxLat) / 2;
 
-  return node;
+  return (
+    indexFromLatLng(dataset, centerLng, centerLat) ??
+    findNearestInsideIndex(dataset, dataset.cols / 2, dataset.rows / 2)
+  );
 }
 
 function parseMode(value: string | undefined): AnalysisMode {
@@ -564,7 +517,7 @@ function parseMode(value: string | undefined): AnalysisMode {
 }
 
 function parseAscentScope() {
-  const selected = controls.querySelector<HTMLInputElement>(
+  const selected = nodes.controls.querySelector<HTMLInputElement>(
     'input[name="ascent-scope"]:checked',
   );
 

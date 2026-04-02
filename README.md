@@ -1,15 +1,15 @@
-# Prague Elevation Slices
+# City Elevation Slices
 
-Interactive Prague terrain map.
+Interactive terrain map for any city with a discoverable administrative boundary.
 
-Click any point in Prague, then highlight:
+Default city: Prague. Search another city, then click any point and highlight:
 
 - cells within the same elevation band
 - cells that stay under an elevation ceiling
 - or cells reachable within a cumulative uphill budget on the least-ascent terrain path
 - with cumulative ascent available as either one-way or back-and-forth budget
 
-Use case: show that many Prague trips are topographically easier than the city's reputation suggests.
+Use case: show that many trips in a city are topographically easier than the city's reputation suggests.
 
 ## Run
 
@@ -26,7 +26,8 @@ npm run build
 
 ## How it works
 
-- Prague boundary from OpenStreetMap/Nominatim, stored in [`public/data/prague-boundary.geojson`](/Users/janca/projects/prague-elevation/public/data/prague-boundary.geojson)
+- Default Prague boundary bundled in [`public/data/prague-boundary.geojson`](/Users/janca/projects/prague-elevation/public/data/prague-boundary.geojson)
+- Other city boundaries fetched from OpenStreetMap/Nominatim and cached in browser local storage
 - Elevation sampled from public Terrarium DEM tiles at zoom 12
 - Boundary rasterized into a city mask
 - On click, the app computes either:

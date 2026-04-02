@@ -1,29 +1,5 @@
+import { type BoundaryGeoJson } from './boundary';
 import { latToWorldY, lonToWorldX, metersPerPixel, tileSize, worldXToLon, worldYToLat } from './mercator';
-
-type Ring = [number, number][];
-type Polygon = Ring[];
-
-interface GeoJsonFeature<TGeometry> {
-  geometry: TGeometry;
-}
-
-interface PolygonGeometry {
-  type: 'Polygon';
-  coordinates: Ring[];
-}
-
-interface MultiPolygonGeometry {
-  type: 'MultiPolygon';
-  coordinates: Polygon[];
-}
-
-type BoundaryGeometry = PolygonGeometry | MultiPolygonGeometry;
-
-export interface BoundaryGeoJson {
-  type: 'FeatureCollection';
-  bbox: [number, number, number, number];
-  features: Array<GeoJsonFeature<BoundaryGeometry>>;
-}
 
 export interface TerrainDataset {
   zoom: number;
@@ -41,32 +17,12 @@ export interface TerrainDataset {
   bbox: [number, number, number, number];
 }
 
+type BoundaryGeometry = BoundaryGeoJson['features'][number]['geometry'];
+
 interface LoadTerrainOptions {
   zoom: number;
   sampleStep: number;
   onProgress?: (loaded: number, total: number) => void;
-}
-
-export async function loadPragueBoundary() {
-  const response = await fetch('/data/prague-boundary.geojson');
-
-  if (!response.ok) {
-    throw new Error(`Boundary load failed: ${response.status}`);
-  }
-
-  const data = (await response.json()) as BoundaryGeoJson;
-  const feature = data.features[0];
-
-  if (!feature) {
-    throw new Error('Prague boundary has no features.');
-  }
-
-  const bbox = data.bbox ?? deriveBbox(feature.geometry);
-
-  return {
-    ...data,
-    bbox,
-  } satisfies BoundaryGeoJson;
 }
 
 export async function loadTerrainDataset(
@@ -322,28 +278,6 @@ async function loadTerrariumTile(tileX: number, tileY: number, zoom: number) {
 
 function decodeTerrarium(tile: Uint8ClampedArray, offset: number) {
   return tile[offset] * 256 + tile[offset + 1] + tile[offset + 2] / 256 - 32768;
-}
-
-function deriveBbox(geometry: BoundaryGeometry): [number, number, number, number] {
-  let minLng = Number.POSITIVE_INFINITY;
-  let minLat = Number.POSITIVE_INFINITY;
-  let maxLng = Number.NEGATIVE_INFINITY;
-  let maxLat = Number.NEGATIVE_INFINITY;
-
-  const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
-
-  polygons.forEach((polygon) => {
-    polygon.forEach((ring) => {
-      ring.forEach(([lng, lat]) => {
-        minLng = Math.min(minLng, lng);
-        minLat = Math.min(minLat, lat);
-        maxLng = Math.max(maxLng, lng);
-        maxLat = Math.max(maxLat, lat);
-      });
-    });
-  });
-
-  return [minLng, minLat, maxLng, maxLat];
 }
 
 function key(tileX: number, tileY: number) {
