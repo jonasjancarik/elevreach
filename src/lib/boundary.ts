@@ -2,6 +2,7 @@ type Ring = [number, number][];
 type Polygon = Ring[];
 
 interface GeoJsonFeature<TGeometry, TProperties> {
+  type: 'Feature';
   geometry: TGeometry;
   properties: TProperties;
 }
@@ -39,16 +40,18 @@ export interface LoadedBoundary {
 interface BoundaryQueryFix {
   canonicalQuery: string;
   labelOverride?: string;
+  osmLookupId?: string;
   matches: RegExp[];
 }
 
 const DEFAULT_BOUNDARY_PATH = '/data/prague-boundary.geojson';
 const DEFAULT_CITY_QUERY = 'Prague, Czechia';
-const BOUNDARY_CACHE_PREFIX = 'city-elevation:boundary:';
+const BOUNDARY_CACHE_PREFIX = 'city-elevation:v2:boundary:';
 const BOUNDARY_QUERY_FIXES: BoundaryQueryFix[] = [
   {
     canonicalQuery: 'Brussels, Brussels-Capital Region, Belgium',
     labelOverride: 'Brussels-Capital Region, Belgium',
+    osmLookupId: 'R54094',
     matches: [
       /^brussels$/i,
       /^brussels,\s*belgium$/i,
@@ -100,22 +103,19 @@ export async function searchCityBoundary(rawQuery: string) {
   }
 
   const params = new URLSearchParams({
-    q: fixedQuery.canonicalQuery,
-    format: 'geojson',
+    format: 'jsonv2',
     polygon_geojson: '1',
     limit: '1',
     email: 'jonas.jancarik@gmail.com',
   });
-  const response = await fetch(
-    `https://nominatim.openstreetmap.org/search?${params.toString()}`,
-  );
+  const response = await fetch(buildNominatimUrl(fixedQuery, params));
 
   if (!response.ok) {
     throw new Error(`Boundary search failed: ${response.status}`);
   }
 
   const normalized = normalizeBoundary(
-    (await response.json()) as BoundaryGeoJson,
+    jsonv2ToBoundary((await response.json()) as LookupResponse, fixedQuery.canonicalQuery),
     fixedQuery.canonicalQuery,
   );
 
@@ -198,6 +198,73 @@ function applyQueryFix(query: string) {
   return {
     canonicalQuery: fix.canonicalQuery,
     labelOverride: fix.labelOverride,
+    osmLookupId: fix.osmLookupId,
+  };
+}
+
+interface LookupFeature {
+  geojson?: BoundaryGeoJson['features'][number]['geometry'];
+  boundingbox?: string[];
+  display_name?: string;
+  name?: string;
+}
+
+type LookupResponse = LookupFeature[] | { features?: unknown };
+
+function buildNominatimUrl(
+  fixedQuery: {
+    canonicalQuery: string;
+    osmLookupId?: string;
+  },
+  params: URLSearchParams,
+) {
+  if (fixedQuery.osmLookupId) {
+    params.set('osm_ids', fixedQuery.osmLookupId);
+    return `https://nominatim.openstreetmap.org/lookup?${params.toString()}`;
+  }
+
+  params.set('q', fixedQuery.canonicalQuery);
+  return `https://nominatim.openstreetmap.org/search?${params.toString()}`;
+}
+
+function jsonv2ToBoundary(data: LookupResponse, fallbackLabel: string): BoundaryGeoJson {
+  if (!Array.isArray(data)) {
+    throw new Error(`Boundary response malformed for ${fallbackLabel}.`);
+  }
+
+  const first = data[0];
+
+  if (!first?.geojson) {
+    return {
+      type: 'FeatureCollection',
+      bbox: [0, 0, 0, 0],
+      features: [],
+    };
+  }
+
+  const bbox =
+    first.boundingbox && first.boundingbox.length === 4
+      ? ([
+          Number(first.boundingbox[2]),
+          Number(first.boundingbox[0]),
+          Number(first.boundingbox[3]),
+          Number(first.boundingbox[1]),
+        ] as [number, number, number, number])
+      : deriveBbox(first.geojson);
+
+  return {
+    type: 'FeatureCollection',
+    bbox,
+    features: [
+      {
+        type: 'Feature',
+        geometry: first.geojson,
+        properties: {
+          display_name: first.display_name,
+          name: first.name,
+        },
+      },
+    ],
   };
 }
 
