@@ -2,8 +2,9 @@ import L, { type LeafletMouseEvent } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 
-import { type AnalysisMode, type AnalysisResult, runElevationAnalysis } from './lib/analysis';
+import { type AnalysisMode, runElevationAnalysis } from './lib/analysis';
 import { setupAppShell } from './lib/app-shell';
+import { createBasemapLayer } from './lib/basemaps';
 import {
   DEFAULT_CITY_QUERY,
   loadBundledBoundary,
@@ -13,16 +14,25 @@ import {
 import { renderAnalysisOverlay } from './lib/render';
 import {
   cellLatLng,
-  elevationAtIndex,
   findNearestInsideIndex,
   indexFromLatLng,
   loadTerrainDataset,
   type TerrainDataset,
 } from './lib/terrain';
+import {
+  getStoredAppearance,
+  resolveTheme,
+  storeAppearance,
+  type AppearancePreference,
+  type ResolvedTheme,
+  watchSystemTheme,
+} from './lib/theme';
+import { pickDefaultAnchor, setLoadingState, setStatusView, updateStatsView } from './lib/view';
 
 type PresetKey = 'flat-5' | 'flat-15' | 'ceiling-5' | 'ascent-25';
 
 interface AppState {
+  appearance: AppearancePreference;
   boundary: BoundaryGeoJson | null;
   cityLabel: string;
   dataset: TerrainDataset | null;
@@ -42,8 +52,10 @@ if (!app) {
 }
 
 const nodes = setupAppShell(app, DEFAULT_CITY_QUERY);
+const initialAppearance = getStoredAppearance();
 
 const state: AppState = {
+  appearance: initialAppearance,
   boundary: null,
   cityLabel: DEFAULT_CITY_QUERY,
   dataset: null,
@@ -67,11 +79,8 @@ L.control
   })
   .addTo(map);
 
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors',
-  maxZoom: 17,
-}).addTo(map);
-
+let resolvedTheme: ResolvedTheme = resolveTheme(initialAppearance);
+let basemapLayer = createBasemapLayer(resolvedTheme).addTo(map);
 let boundaryLayer: L.GeoJSON | null = null;
 let sourceMarker: L.CircleMarker | null = null;
 let overlayLayer: L.ImageOverlay | null = null;
@@ -80,7 +89,8 @@ let activeLoadId = 0;
 
 bootstrap().catch((error) => {
   console.error(error);
-  setStatus(
+  setStatusView(
+    nodes,
     error instanceof Error ? error.message : 'Failed to load city terrain.',
     true,
   );
@@ -98,13 +108,42 @@ nodes.controls.addEventListener('change', () => {
   scheduleRender();
 });
 
+nodes.appearanceButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    const preference = button.dataset.appearance as AppearancePreference | undefined;
+
+    if (
+      !preference ||
+      (preference !== 'system' &&
+        preference !== 'light' &&
+        preference !== 'dark') ||
+      preference === state.appearance
+    ) {
+      return;
+    }
+
+    state.appearance = preference;
+    storeAppearance(preference);
+    applyAppearance();
+  });
+});
+
+watchSystemTheme((nextTheme) => {
+  if (state.appearance !== 'system') {
+    return;
+  }
+
+  resolvedTheme = nextTheme;
+  applyAppearance();
+});
+
 nodes.searchForm.addEventListener('submit', (event) => {
   event.preventDefault();
 
   const query = nodes.searchInput.value.trim();
 
   if (!query) {
-    setStatus('Enter a city, ideally "City, Country".', true);
+    setStatusView(nodes, 'Enter a city, ideally "City, Country".', true);
     return;
   }
 
@@ -147,13 +186,14 @@ map.on('click', (event: LeafletMouseEvent) => {
 
 async function bootstrap() {
   syncStateFromControls();
+  applyAppearance();
   await loadCity(DEFAULT_CITY_QUERY, true);
 }
 
 async function loadCity(query: string, useBundled: boolean) {
   const loadId = ++activeLoadId;
-  setSearchLoading(true);
-  setStatus(useBundled ? 'Loading default city boundary…' : `Loading ${query}…`);
+  setLoadingState(nodes, true);
+  setStatusView(nodes, useBundled ? 'Loading default city boundary…' : `Loading ${query}…`);
   clearVisualization();
 
   try {
@@ -171,7 +211,7 @@ async function loadCity(query: string, useBundled: boolean) {
     document.title = `Elevation Slices: ${loadedBoundary.label}`;
     renderBoundary(loadedBoundary.boundary);
 
-    setStatus(`Loading elevation for ${loadedBoundary.label}…`);
+    setStatusView(nodes, `Loading elevation for ${loadedBoundary.label}…`);
 
     const dataset = await loadTerrainDataset(loadedBoundary.boundary, {
       zoom: 12,
@@ -181,7 +221,7 @@ async function loadCity(query: string, useBundled: boolean) {
           return;
         }
 
-        setStatus(`Loading elevation tiles for ${loadedBoundary.label}… ${loaded}/${total}`);
+        setStatusView(nodes, `Loading elevation tiles for ${loadedBoundary.label}… ${loaded}/${total}`);
       },
     });
 
@@ -205,29 +245,28 @@ async function loadCity(query: string, useBundled: boolean) {
     }
 
     console.error(error);
-    setStatus(
+    setStatusView(
+      nodes,
       error instanceof Error ? error.message : 'Failed to load city terrain.',
       true,
     );
   } finally {
     if (loadId === activeLoadId) {
-      setSearchLoading(false);
+      setLoadingState(nodes, false);
     }
   }
 }
 
 function renderBoundary(boundary: BoundaryGeoJson) {
-  boundaryLayer?.remove();
-
-  boundaryLayer = L.geoJSON(boundary, {
-    style: {
-      color: '#101a1d',
-      weight: 2,
-      fillOpacity: 0,
-      opacity: 0.7,
-      dashArray: '6 8',
-    },
-  }).addTo(map);
+  if (boundaryLayer === null) {
+    boundaryLayer = L.geoJSON(boundary, {
+      style: boundaryStyle(),
+    }).addTo(map);
+  } else {
+    boundaryLayer.clearLayers();
+    boundaryLayer.addData(boundary);
+    boundaryLayer.setStyle(boundaryStyle());
+  }
 
   const bbox = boundary.bbox;
   map.fitBounds(
@@ -246,6 +285,16 @@ function clearVisualization() {
   overlayLayer = null;
   sourceMarker?.remove();
   sourceMarker = null;
+}
+
+function applyAppearance() {
+  resolvedTheme = resolveTheme(state.appearance);
+  document.documentElement.dataset.theme = resolvedTheme;
+  basemapLayer.remove();
+  basemapLayer = createBasemapLayer(resolvedTheme).addTo(map);
+  basemapLayer.bringToBack();
+  updateMapThemeStyles();
+  updateAppearanceState();
 }
 
 function syncStateFromControls() {
@@ -377,6 +426,12 @@ function updatePresetState(active: PresetKey | null) {
   });
 }
 
+function updateAppearanceState() {
+  nodes.appearanceButtons.forEach((button) => {
+    button.classList.toggle('active', button.dataset.appearance === state.appearance);
+  });
+}
+
 function scheduleRender() {
   if (renderScheduled) {
     return;
@@ -418,51 +473,16 @@ function renderVisualization() {
     overlayLayer.setUrl(imageUrl);
   }
 
-  setStatus('Ready');
-  updateStats(state.dataset, analysis);
-}
-
-function updateStats(dataset: TerrainDataset, analysis: AnalysisResult) {
-  if (state.sourceIndex === null) {
-    return;
-  }
-
-  const sourcePoint = cellLatLng(dataset, state.sourceIndex);
-  const sourceElevation = elevationAtIndex(dataset, state.sourceIndex);
-  const share =
-    analysis.insideAreaKm2 === 0
-      ? 0
-      : analysis.matchedAreaKm2 / analysis.insideAreaKm2;
-
-  nodes.elevationStat.textContent = `${sourceElevation.toFixed(0)} m`;
-  nodes.shareStat.textContent = `${(share * 100).toFixed(1)}%`;
-  nodes.areaStat.textContent = `${analysis.matchedAreaKm2.toFixed(1)} km²`;
-  nodes.coordsStat.textContent = `${sourcePoint.lat.toFixed(4)}, ${sourcePoint.lng.toFixed(4)}`;
-
-  const baseRule =
-    state.mode === 'ceiling'
-      ? `Cells at ${sourceElevation.toFixed(0)} m + ${state.upperAllowance} m or lower`
-      : state.mode === 'ascent'
-        ? state.ascentRoundTrip
-          ? `Cells where uphill there + uphill back, on least-ascent terrain paths, stays ≤ ${state.ascentBudget} m`
-          : `Cells reachable on the least-ascent terrain path with total uphill ≤ ${state.ascentBudget} m`
-        : `Cells inside ${sourceElevation.toFixed(0)} m - ${state.lowerAllowance} m / + ${state.upperAllowance} m`;
-  const scope =
-    state.mode === 'ascent'
-      ? 'from the anchor'
-      : state.contiguousOnly
-        ? 'connected to the anchor'
-        : `across ${state.cityLabel}`;
-  const caveat =
-    state.mode === 'ascent'
-      ? state.ascentRoundTrip
-        ? 'Terrain path only; best outbound and return paths can differ, and roads may be worse.'
-        : 'Terrain path only; road detours can add more climbing.'
-      : state.mode === 'ceiling'
-        ? 'Useful as a ceiling, not a promise of an easy ride.'
-        : '';
-
-  nodes.ruleSummary.textContent = `${baseRule}. Showing area ${scope}.${caveat ? ` ${caveat}` : ''}`;
+  setStatusView(nodes, 'Ready');
+  updateStatsView(nodes, state.dataset, state.sourceIndex, analysis, {
+    cityLabel: state.cityLabel,
+    mode: state.mode,
+    upperAllowance: state.upperAllowance,
+    lowerAllowance: state.lowerAllowance,
+    ascentBudget: state.ascentBudget,
+    ascentRoundTrip: state.ascentRoundTrip,
+    contiguousOnly: state.contiguousOnly,
+  });
 }
 
 function setSourceMarker(index: number) {
@@ -476,36 +496,28 @@ function setSourceMarker(index: number) {
     sourceMarker = L.circleMarker(point, {
       radius: 7,
       weight: 3,
-      color: '#f8f4e9',
-      fillColor: '#101a1d',
+      color: markerStroke(),
+      fillColor: markerFill(),
       fillOpacity: 1,
     }).addTo(map);
   } else {
     sourceMarker.setLatLng(point);
+    sourceMarker.setStyle({
+      color: markerStroke(),
+      fillColor: markerFill(),
+    });
   }
 }
 
-function setStatus(message: string, isError = false) {
-  nodes.statusNode.textContent = message;
-  nodes.statusNode.classList.toggle('is-loading', !isError && message !== 'Ready');
-  nodes.statusNode.classList.toggle('is-error', isError);
-}
+function updateMapThemeStyles() {
+  boundaryLayer?.setStyle(boundaryStyle());
 
-function setSearchLoading(isLoading: boolean) {
-  nodes.searchButton.disabled = isLoading;
-  nodes.searchInput.disabled = isLoading;
-  nodes.searchButton.textContent = isLoading ? 'Loading…' : 'Load city';
-}
-
-function pickDefaultAnchor(dataset: TerrainDataset, boundary: BoundaryGeoJson) {
-  const [minLng, minLat, maxLng, maxLat] = boundary.bbox;
-  const centerLng = (minLng + maxLng) / 2;
-  const centerLat = (minLat + maxLat) / 2;
-
-  return (
-    indexFromLatLng(dataset, centerLng, centerLat) ??
-    findNearestInsideIndex(dataset, dataset.cols / 2, dataset.rows / 2)
-  );
+  if (sourceMarker) {
+    sourceMarker.setStyle({
+      color: markerStroke(),
+      fillColor: markerFill(),
+    });
+  }
 }
 
 function parseMode(value: string | undefined): AnalysisMode {
@@ -522,4 +534,22 @@ function parseAscentScope() {
   );
 
   return selected?.value === 'round-trip' ? 'round-trip' : 'one-way';
+}
+
+function boundaryStyle(): L.PathOptions {
+  return {
+    color: resolvedTheme === 'dark' ? '#edf3ef' : '#101a1d',
+    weight: 2,
+    fillOpacity: 0,
+    opacity: 0.78,
+    dashArray: '6 8',
+  };
+}
+
+function markerStroke() {
+  return resolvedTheme === 'dark' ? '#101a1d' : '#f8f4e9';
+}
+
+function markerFill() {
+  return resolvedTheme === 'dark' ? '#edf3ef' : '#101a1d';
 }

@@ -1,4 +1,7 @@
+import type { AppearancePreference } from './theme';
+
 export interface AppNodes {
+  appearanceButtons: HTMLButtonElement[];
   controls: HTMLFormElement;
   searchForm: HTMLFormElement;
   searchInput: HTMLInputElement;
@@ -27,10 +30,33 @@ export function setupAppShell(
   root: HTMLDivElement,
   defaultCityQuery: string,
 ): AppNodes {
+  const appearanceButtonsMarkup = (['system', 'light', 'dark'] as AppearancePreference[])
+    .map(
+      (value) => `
+        <button
+          type="button"
+          class="appearance-button${value === 'system' ? ' active' : ''}"
+          data-appearance="${value}"
+          aria-label="${appearanceLabel(value)} mode"
+          title="${appearanceLabel(value)} mode"
+        >
+          <span class="appearance-icon" aria-hidden="true">${appearanceIcon(value)}</span>
+        </button>
+      `,
+    )
+    .join('');
+
   root.innerHTML = `
     <div class="shell">
       <aside class="panel">
-        <p class="eyebrow">City elevation slices</p>
+        <div class="panel-top">
+          <p class="eyebrow">City elevation slices</p>
+          <div class="panel-appearance-picker" aria-label="Appearance">
+            <div class="appearance-buttons">
+              ${appearanceButtonsMarkup}
+            </div>
+          </div>
+        </div>
         <h1>Load a city. See which parts share a climb budget.</h1>
         <p class="lede">
           Same-height bands for flat trips. Elevation ceilings for rough downhill intuition. Cumulative ascent for a more honest one-way or back-and-forth terrain budget.
@@ -148,7 +174,7 @@ export function setupAppShell(
           Terrain-only model. Cumulative ascent uses the least-uphill terrain path, not real streets, bridges, or intersections.
         </p>
         <p class="sources">
-          Basemap: OpenStreetMap. Boundary search: OpenStreetMap/Nominatim. Elevation: Terrarium tiles.
+          Basemap: Stadia Maps Alidade. Boundary search: OpenStreetMap/Nominatim. Elevation: Terrarium tiles.
         </p>
       </aside>
 
@@ -167,6 +193,9 @@ export function setupAppShell(
   `;
 
   return {
+    appearanceButtons: Array.from(
+      document.querySelectorAll<HTMLButtonElement>('[data-appearance]'),
+    ),
     controls: must<HTMLFormElement>('#controls'),
     searchForm: must<HTMLFormElement>('#city-form'),
     searchInput: must<HTMLInputElement>('#city-query'),
@@ -194,6 +223,42 @@ export function setupAppShell(
       document.querySelectorAll<HTMLButtonElement>('[data-preset]'),
     ),
   };
+}
+
+function appearanceLabel(value: AppearancePreference) {
+  switch (value) {
+    case 'light':
+      return 'Light';
+    case 'dark':
+      return 'Dark';
+    default:
+      return 'System';
+  }
+}
+
+function appearanceIcon(value: AppearancePreference) {
+  switch (value) {
+    case 'light':
+      return `
+        <svg viewBox="0 0 24 24" focusable="false">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2.5v3.2M12 18.3v3.2M21.5 12h-3.2M5.7 12H2.5M18.7 5.3l-2.3 2.3M7.6 16.4l-2.3 2.3M18.7 18.7l-2.3-2.3M7.6 7.6 5.3 5.3"></path>
+        </svg>
+      `;
+    case 'dark':
+      return `
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M14.8 3.4a8.7 8.7 0 1 0 5.8 15.1A9.4 9.4 0 0 1 14.8 3.4Z"></path>
+        </svg>
+      `;
+    default:
+      return `
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M12 3a9 9 0 1 0 0 18Z"></path>
+          <path d="M12 3a9 9 0 0 1 0 18Z" opacity="0.35"></path>
+        </svg>
+      `;
+  }
 }
 
 function must<TElement extends Element>(selector: string) {
