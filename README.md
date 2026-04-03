@@ -1,4 +1,4 @@
-# City Elevation Slices
+# ElevReach
 
 Interactive terrain map for any city with a discoverable administrative boundary.
 
@@ -26,7 +26,7 @@ npm run build
 
 ## How it works
 
-- Default Prague boundary bundled in [`public/data/prague-boundary.geojson`](/Users/janca/projects/prague-elevation/public/data/prague-boundary.geojson)
+- Default Prague boundary bundled in `public/data/prague-boundary.geojson`
 - Other city boundaries fetched from OpenStreetMap/Nominatim and cached in browser local storage
 - Elevation sampled from public Terrarium DEM tiles at zoom 12
 - Boundary rasterized into a city mask
@@ -47,3 +47,7 @@ npm run build
 ## Next useful step
 
 Snap the cumulative-ascent mode onto a real street / bike graph, then price edges by uphill meters plus route penalties.
+
+## GitHub Pages
+
+Deploys automatically from GitHub Actions on pushes to `main`.

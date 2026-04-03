@@ -80,11 +80,11 @@
   --control-surface: rgba(22, 30, 35, 0.78);
   --control-surface-strong: rgba(22, 30, 35, 0.94);
   --rule-bg: rgba(215, 162, 66, 0.18);
-  --appearance-track: rgba(8, 12, 15, 0.36);
-  --appearance-track-border: rgba(236, 243, 239, 0.16);
+  --appearance-track: rgba(8, 12, 15, 0.58);
+  --appearance-track-border: rgba(236, 243, 239, 0.12);
   --appearance-ink: rgba(236, 243, 239, 0.62);
   --appearance-hover: rgba(236, 243, 239, 0.08);
-  --appearance-active: #d7a242;
+  --appearance-active: #efc86d;
   --appearance-active-ink: #101a1d;
 }
 
@@ -159,10 +159,10 @@ button {
 }
 
 .panel {
-  padding: 28px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
   overflow: auto;
   overscroll-behavior: contain;
 }
@@ -202,14 +202,18 @@ button {
   border-radius: 999px;
   background: var(--appearance-track);
   border: 1px solid var(--appearance-track-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 1px 10px rgba(0, 0, 0, 0.08);
 }
 
 h1 {
   margin: 0;
   font-family: 'Iowan Old Style', 'Palatino Linotype', serif;
-  font-size: clamp(2.4rem, 3vw, 4rem);
-  line-height: 0.96;
+  font-size: clamp(2.1rem, 2.8vw, 3.4rem);
+  line-height: 0.9;
   letter-spacing: -0.04em;
+  max-width: 9ch;
 }
 
 .lede,
@@ -231,10 +235,15 @@ h1 {
   line-height: 1.5;
 }
 
+.lede {
+  max-width: 32ch;
+  font-size: 0.98rem;
+}
+
 .preset-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .city-form {
@@ -247,7 +256,8 @@ h1 {
   width: 100%;
   border: 1px solid var(--stroke-mid);
   border-radius: 16px;
-  padding: 13px 16px;
+  min-height: 46px;
+  padding: 11px 14px;
   background: var(--surface-soft);
   color: var(--text-main);
 }
@@ -255,7 +265,8 @@ h1 {
 .city-submit {
   border: 0;
   border-radius: 16px;
-  padding: 0 18px;
+  min-height: 46px;
+  padding: 0 16px;
   background: var(--surface-strong);
   color: var(--text-inverse);
   transition:
@@ -274,9 +285,10 @@ h1 {
 
 .city-meta {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 14px 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
   border-radius: 20px;
   background: var(--surface-muted);
   border: 1px solid var(--surface-muted-strong);
@@ -290,8 +302,9 @@ h1 {
 }
 
 .city-label {
-  font-size: 1.05rem;
-  line-height: 1.35;
+  font-size: 1rem;
+  line-height: 1.25;
+  text-align: right;
 }
 
 .appearance-buttons {
@@ -303,8 +316,8 @@ h1 {
 .appearance-button {
   border: 0;
   border-radius: 999px;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -312,6 +325,7 @@ h1 {
   background: transparent;
   color: var(--appearance-ink);
   line-height: 1;
+  opacity: 0.76;
   transition:
     transform 160ms ease,
     background 160ms ease,
@@ -324,12 +338,16 @@ h1 {
 .appearance-button:focus-visible {
   color: var(--text-main);
   background: var(--appearance-hover);
+  opacity: 1;
 }
 
 .appearance-button.active {
   background: var(--appearance-active);
   color: var(--appearance-active-ink);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+  opacity: 1;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 4px 12px rgba(0, 0, 0, 0.22);
 }
 
 .appearance-icon {
@@ -351,9 +369,11 @@ h1 {
 .preset {
   border: 0;
   border-radius: 999px;
-  padding: 10px 14px;
+  min-height: 38px;
+  padding: 8px 12px;
   background: var(--surface-strong-soft);
   color: var(--text-main);
+  text-align: center;
   transition:
     transform 160ms ease,
     background 160ms ease,
@@ -374,8 +394,8 @@ h1 {
 .controls {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 18px;
+  gap: 12px;
+  padding: 16px;
   border-radius: 22px;
   background: var(--control-surface);
   border: 1px solid var(--surface-muted-strong);
@@ -386,11 +406,11 @@ h1 {
   padding: 0;
   border: 0;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .mode-switch legend {
-  margin-bottom: 10px;
+  margin-bottom: 4px;
   font-weight: 700;
 }
 
@@ -401,9 +421,24 @@ h1 {
   gap: 10px;
 }
 
+.mode-switch label {
+  padding: 9px 10px;
+  border-radius: 14px;
+  background: var(--surface-muted);
+  border: 1px solid var(--surface-muted-strong);
+}
+
+.mode-switch:not(.sub-switch) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sub-switch {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .control {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .control:has(input:disabled),
@@ -426,11 +461,11 @@ input[type='range'] {
 .stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .stats article {
-  padding: 16px;
+  padding: 12px;
   border-radius: 20px;
   background: var(--surface-muted);
   border: 1px solid var(--surface-muted-strong);
@@ -444,13 +479,13 @@ input[type='range'] {
 }
 
 .stats strong {
-  font-size: clamp(1.1rem, 2vw, 1.45rem);
+  font-size: clamp(1rem, 1.6vw, 1.25rem);
   letter-spacing: -0.03em;
 }
 
 .rule-summary {
   margin: 0;
-  padding: 16px 18px;
+  padding: 14px 16px;
   border-left: 4px solid var(--accent);
   background: var(--rule-bg);
   border-radius: 16px;
@@ -581,6 +616,10 @@ input[type='range'] {
   .city-form {
     grid-template-columns: 1fr;
   }
+
+  .mode-switch:not(.sub-switch) {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -609,6 +648,15 @@ input[type='range'] {
   .panel-appearance-picker {
     justify-content: flex-start;
     width: fit-content;
+  }
+
+  .city-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .city-label {
+    text-align: left;
   }
 
   .panel-appearance-picker .appearance-buttons {

@@ -208,7 +208,7 @@ async function loadCity(query: string, useBundled: boolean) {
     state.boundary = loadedBoundary.boundary;
     state.cityLabel = loadedBoundary.label;
     nodes.cityLabel.textContent = loadedBoundary.label;
-    document.title = `Elevation Slices: ${loadedBoundary.label}`;
+    document.title = `ElevReach: ${loadedBoundary.label}`;
     renderBoundary(loadedBoundary.boundary);
 
     setStatusView(nodes, `Loading elevation for ${loadedBoundary.label}…`);

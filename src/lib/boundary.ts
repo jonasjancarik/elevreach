@@ -44,7 +44,7 @@ interface BoundaryQueryFix {
   matches: RegExp[];
 }
 
-const DEFAULT_BOUNDARY_PATH = '/data/prague-boundary.geojson';
+const DEFAULT_BOUNDARY_PATH = `${import.meta.env.BASE_URL}data/prague-boundary.geojson`;
 const DEFAULT_CITY_QUERY = 'Prague, Czechia';
 const BOUNDARY_CACHE_PREFIX = 'city-elevation:v2:boundary:';
 const BOUNDARY_QUERY_FIXES: BoundaryQueryFix[] = [

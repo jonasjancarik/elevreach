@@ -50,7 +50,7 @@ export function setupAppShell(
     <div class="shell">
       <aside class="panel">
         <div class="panel-top">
-          <p class="eyebrow">City elevation slices</p>
+          <p class="eyebrow">ElevReach</p>
           <div class="panel-appearance-picker" aria-label="Appearance">
             <div class="appearance-buttons">
               ${appearanceButtonsMarkup}
