@@ -52,163 +52,159 @@ export function setupAppShell(
 
   root.innerHTML = `
     <div class="shell">
-      <aside class="panel">
-        <div class="panel-top">
-          <p class="eyebrow">ElevReach</p>
-          <div class="panel-appearance-picker" aria-label="Appearance">
-            <div class="appearance-buttons">
-              ${appearanceButtonsMarkup}
+      <div id="map" aria-label="City elevation map"></div>
+      
+      <div class="map-overlay">
+        <!-- Top Left -->
+        <div class="floating-panel top-left">
+          <div class="panel-top">
+            <p class="eyebrow">ElevReach</p>
+            <div class="panel-appearance-picker" aria-label="Appearance">
+              <div class="appearance-buttons">
+                ${appearanceButtonsMarkup}
+              </div>
             </div>
           </div>
-        </div>
-        <h1>How much of the city is an easy trip?</h1>
-        <p class="lede">
-          See the areas you can reach from any starting point without a lot of effort. Click anywhere on the map to explore your accessible zone.
-        </p>
 
-        <form class="city-form" id="city-form">
-          <label class="city-search" for="city-query">
-            <span class="sr-only">City search</span>
-            <input
-              id="city-query"
-              name="city-query"
-              type="search"
-              value="${defaultCityQuery}"
-              placeholder="Try Lisbon, Portugal"
-              autocomplete="off"
-            />
-          </label>
-          <button id="city-submit" class="city-submit" type="submit">Search</button>
-        </form>
-
-        <div class="preset-bar" aria-label="Presets">
-          <button type="button" class="preset" data-preset="flat-5">Flat ±5 m</button>
-          <button type="button" class="preset" data-preset="flat-15">Flat ±15 m</button>
-          <button type="button" class="preset" data-preset="ceiling-5">Max +5 m</button>
-          <button type="button" class="preset active" data-preset="ascent-25">Climb ≤25 m</button>
-        </div>
-
-        <form class="controls" id="controls">
-          <fieldset class="mode-switch sub-switch boundary-switch">
-            <legend>Search area</legend>
-            <label>
-              <input type="radio" name="boundary-scope" value="city" checked />
-              <span>City limits</span>
+          <form class="city-form" id="city-form">
+            <label class="city-search" for="city-query">
+              <span class="sr-only">City search</span>
+              <input
+                id="city-query"
+                name="city-query"
+                type="search"
+                value="${defaultCityQuery}"
+                placeholder="Try Lisbon, Portugal"
+                autocomplete="off"
+              />
             </label>
-            <label>
-              <input type="radio" name="boundary-scope" value="radius" />
-              <span>Radius</span>
-            </label>
-          </fieldset>
+            <button id="city-submit" class="city-submit" type="submit">Search</button>
+          </form>
 
-          <label class="control" id="boundary-radius-control">
-            <div class="control-head">
-              <span>Search distance</span>
-              <output id="boundary-radius-output" for="boundary-radius-range">6 km</output>
-            </div>
-            <input id="boundary-radius-range" type="range" min="1" max="25" step="0.5" value="6" />
-            <small id="boundary-radius-hint">Radius mode follows the selected map point.</small>
-          </label>
+          <div class="stats">
+            <article>
+              <span class="stat-label">Reachable area</span>
+              <strong id="area-stat">…</strong>
+            </article>
+            <article>
+              <span class="stat-label">Start elevation</span>
+              <strong id="elevation-stat">…</strong>
+            </article>
+          </div>
 
-          <fieldset class="mode-switch">
-            <legend>Analysis mode</legend>
-            <label>
-              <input type="radio" name="mode" value="band" />
-              <span>Flat zone</span>
-            </label>
-            <label>
-              <input type="radio" name="mode" value="ceiling" />
-              <span>Elevation cap</span>
-            </label>
-            <label>
-              <input type="radio" name="mode" value="ascent" checked />
-              <span>Total climbing</span>
-            </label>
-          </fieldset>
-
-          <label class="control" id="upper-control">
-            <div class="control-head">
-              <span>Max climb up</span>
-              <output id="upper-output" for="upper-range">15 m</output>
-            </div>
-            <input id="upper-range" type="range" min="0" max="40" step="1" value="15" />
-          </label>
-
-          <label class="control" id="lower-control">
-            <div class="control-head">
-              <span>Max drop down</span>
-              <output id="lower-output" for="lower-range">15 m</output>
-            </div>
-            <input id="lower-range" type="range" min="0" max="80" step="1" value="15" />
-            <small id="lower-hint">Used only in flat zone mode.</small>
-          </label>
-
-          <label class="control" id="budget-control">
-            <div class="control-head">
-              <span>Max total climbing</span>
-              <output id="budget-output" for="budget-range">25 m</output>
-            </div>
-            <input id="budget-range" type="range" min="0" max="160" step="5" value="25" />
-            <small id="budget-hint">Used only in total climbing mode.</small>
-          </label>
-
-          <fieldset class="mode-switch sub-switch" id="ascent-scope-control">
-            <legend>Apply climbing limit to</legend>
-            <label>
-              <input type="radio" name="ascent-scope" value="one-way" checked />
-              <span>One-way trip</span>
-            </label>
-            <label>
-              <input type="radio" name="ascent-scope" value="round-trip" />
-              <span>Round trip</span>
-            </label>
-          </fieldset>
-
-          <label class="toggle" id="connected-control">
-            <input id="connected-toggle" type="checkbox" checked />
-            <span>Show only directly reachable areas (no jumps)</span>
-          </label>
-        </form>
-
-        <div class="stats">
-          <article>
-            <span class="stat-label">Start elevation</span>
-            <strong id="elevation-stat">…</strong>
-          </article>
-          <article>
-            <span class="stat-label">Reachable area within boundary</span>
-            <strong id="share-stat">…</strong>
-          </article>
-          <article>
-            <span class="stat-label">Approx. area</span>
-            <strong id="area-stat">…</strong>
-          </article>
-          <article>
-            <span class="stat-label">Start coordinates</span>
-            <strong id="coords-stat">…</strong>
-          </article>
+          <p id="rule-summary" class="rule-summary">Loading terrain…</p>
         </div>
 
-        <p id="rule-summary" class="rule-summary">Loading terrain…</p>
-        <p class="note">
-          Terrain-only model. Total climbing uses the least-uphill terrain path, not real streets, bridges, or intersections.
-        </p>
-        <p class="sources">
-          Basemap: CARTO raster tiles. Boundary search: OpenStreetMap/Nominatim. Elevation: Terrarium tiles.
-        </p>
-      </aside>
+        <!-- Bottom Center -->
+        <div class="floating-panel bottom-center">
+          <div class="preset-bar" aria-label="Presets">
+            <button type="button" class="preset" data-preset="flat-5">🚶 Flat Walk</button>
+            <button type="button" class="preset" data-preset="flat-15">🚲 Easy Ride</button>
+            <button type="button" class="preset active" data-preset="ascent-25">🏃 Workout</button>
+            <button type="button" class="preset custom-preset" id="custom-preset-btn">⚙️ Custom</button>
+          </div>
 
-      <section class="stage">
-        <div id="map" aria-label="City elevation map"></div>
-        <div class="map-chrome">
-          <div id="click-hint" class="chip">Click map to move anchor</div>
+          <div id="custom-controls" class="custom-controls hidden">
+            <form class="controls" id="controls">
+              <fieldset class="mode-switch sub-switch boundary-switch">
+                <legend>Search area</legend>
+                <label>
+                  <input type="radio" name="boundary-scope" value="city" checked />
+                  <span>City limits</span>
+                </label>
+                <label>
+                  <input type="radio" name="boundary-scope" value="radius" />
+                  <span>Radius</span>
+                </label>
+              </fieldset>
+
+              <label class="control" id="boundary-radius-control">
+                <div class="control-head">
+                  <span>Search distance</span>
+                  <output id="boundary-radius-output" for="boundary-radius-range">6 km</output>
+                </div>
+                <input id="boundary-radius-range" type="range" min="1" max="25" step="0.5" value="6" />
+              </label>
+
+              <fieldset class="mode-switch">
+                <legend>Analysis mode</legend>
+                <label>
+                  <input type="radio" name="mode" value="band" />
+                  <span>Flat zone</span>
+                </label>
+                <label>
+                  <input type="radio" name="mode" value="ceiling" />
+                  <span>Elevation cap</span>
+                </label>
+                <label>
+                  <input type="radio" name="mode" value="ascent" checked />
+                  <span>Total climbing</span>
+                </label>
+              </fieldset>
+
+              <label class="control" id="upper-control">
+                <div class="control-head">
+                  <span>Max climb up</span>
+                  <output id="upper-output" for="upper-range">15 m</output>
+                </div>
+                <input id="upper-range" type="range" min="0" max="40" step="1" value="15" />
+              </label>
+
+              <label class="control" id="lower-control">
+                <div class="control-head">
+                  <span>Max drop down</span>
+                  <output id="lower-output" for="lower-range">15 m</output>
+                </div>
+                <input id="lower-range" type="range" min="0" max="80" step="1" value="15" />
+              </label>
+
+              <label class="control" id="budget-control">
+                <div class="control-head">
+                  <span>Max total climbing</span>
+                  <output id="budget-output" for="budget-range">25 m</output>
+                </div>
+                <input id="budget-range" type="range" min="0" max="160" step="5" value="25" />
+              </label>
+
+              <fieldset class="mode-switch sub-switch" id="ascent-scope-control">
+                <legend>Apply climbing limit to</legend>
+                <label>
+                  <input type="radio" name="ascent-scope" value="one-way" checked />
+                  <span>One-way</span>
+                </label>
+                <label>
+                  <input type="radio" name="ascent-scope" value="round-trip" />
+                  <span>Round trip</span>
+                </label>
+              </fieldset>
+            </form>
+            
+            <p class="note">
+              Terrain-only model. Total climbing uses the least-uphill terrain path, not real streets.
+            </p>
+          </div>
+        </div>
+
+        <!-- Bottom Left -->
+        <div class="floating-panel bottom-left">
+          <div id="click-hint" class="chip">Click map to move start</div>
           <div class="legend">
             <span class="legend-swatch"></span>
-            <span>matched cells</span>
+            <span>reachable area</span>
           </div>
           <div id="status" class="status is-loading">Loading default city…</div>
         </div>
-      </section>
+      </div>
+      
+      <!-- hidden stats so TS doesn't complain for now -->
+      <div style="display: none;">
+        <span id="share-stat"></span>
+        <span id="coords-stat"></span>
+        <input id="connected-toggle" type="checkbox" checked />
+        <span id="boundary-radius-hint"></span>
+        <span id="lower-hint"></span>
+        <span id="budget-hint"></span>
+      </div>
     </div>
   `;
 

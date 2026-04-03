@@ -81,7 +81,7 @@ const map = L.map('map', {
 
 L.control
   .zoom({
-    position: 'bottomright',
+    position: 'topright',
   })
   .addTo(map);
 
@@ -160,8 +160,18 @@ nodes.searchForm.addEventListener('submit', (event) => {
 nodes.presetButtons.forEach((button) => {
   button.addEventListener('click', () => {
     applyPreset(button.dataset.preset as PresetKey);
+    document.querySelector('#custom-controls')?.classList.add('hidden');
+    document.querySelector('#custom-preset-btn')?.classList.remove('active');
     scheduleRender();
   });
+});
+
+const customPresetBtn = document.querySelector('#custom-preset-btn');
+customPresetBtn?.addEventListener('click', () => {
+  const controls = document.querySelector('#custom-controls');
+  controls?.classList.toggle('hidden');
+  customPresetBtn.classList.toggle('active', !controls?.classList.contains('hidden'));
+  updatePresetState(null);
 });
 
 map.on('click', (event: LeafletMouseEvent) => {
