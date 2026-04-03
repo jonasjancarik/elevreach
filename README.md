@@ -8,6 +8,7 @@ Default city: Prague. Search another city, then click any point and highlight:
 - cells that stay under an elevation ceiling
 - or cells reachable within a cumulative uphill budget on the least-ascent terrain path
 - with cumulative ascent available as either one-way or back-and-forth budget
+- plus a Prague-only estimate of residents living in the matched cells
 
 Use case: show that many trips in a city are lower-climb than the city's reputation suggests, without overselling that as a guaranteed easy ride.
 
@@ -53,6 +54,7 @@ npm run build
 - cumulative ascent mode uses terrain-grid paths, so flat detours are still cheaper than they would be on real streets
 - cumulative ascent mode does not price route distance yet, so a long flat detour can still look cheap
 - round-trip ascent mode adds best uphill cost there and best uphill cost back; those terrain paths may differ
+- resident estimate is Prague-only for now, derived from WorldPop 2020 population counts projected onto the bundled Prague terrain grid
 
 ## Next useful step
 
@@ -61,3 +63,14 @@ Snap the cumulative-ascent mode onto a real street / bike graph, then price edge
 ## GitHub Pages
 
 Deploys automatically from GitHub Actions on pushes to `main`.
+
+## Regenerate Prague Population Layer
+
+```bash
+npm run build:prague-population
+```
+
+This downloads the Czech Republic WorldPop 2020 raster to `/tmp/worldpop-cze-2020.tif`, then projects it onto the bundled Prague terrain grid and writes:
+
+- `public/data/prague-population-grid.json`
+- `public/data/prague-population-grid.bin`

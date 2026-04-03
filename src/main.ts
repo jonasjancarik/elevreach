@@ -13,6 +13,11 @@ import {
 } from './lib/boundary';
 import { renderAnalysisOverlay } from './lib/render';
 import {
+  loadPopulationDataset,
+  summarizePopulation,
+  type PopulationDataset,
+} from './lib/population';
+import {
   buildRadiusMask,
   cellLatLng,
   findNearestInsideIndex,
@@ -38,6 +43,7 @@ interface AppState {
   boundary: BoundaryGeoJson | null;
   cityLabel: string;
   dataset: TerrainDataset | null;
+  populationDataset: PopulationDataset | null | undefined;
   sourceIndex: number | null;
   mode: AnalysisMode;
   upperAllowance: number;
@@ -63,6 +69,7 @@ const state: AppState = {
   boundary: null,
   cityLabel: DEFAULT_CITY_QUERY,
   dataset: null,
+  populationDataset: undefined,
   sourceIndex: null,
   mode: 'ascent',
   upperAllowance: Number(nodes.upperRange.value),
@@ -248,6 +255,7 @@ async function loadCity(query: string, useBundled: boolean) {
     }
 
     state.dataset = dataset;
+    state.populationDataset = undefined;
     state.sourceIndex = pickDefaultAnchor(
       dataset,
       loadedBoundary.boundary,
@@ -261,6 +269,7 @@ async function loadCity(query: string, useBundled: boolean) {
     }
 
     setSourceMarker(state.sourceIndex);
+    void hydratePopulationDataset(loadId, dataset, loadedBoundary.label);
     renderVisualization();
   } catch (error) {
     if (loadId !== activeLoadId) {
@@ -303,6 +312,7 @@ function renderBoundary(boundary: BoundaryGeoJson) {
 
 function clearVisualization() {
   state.dataset = null;
+  state.populationDataset = undefined;
   state.sourceIndex = null;
   boundaryRadiusCircle?.remove();
   boundaryRadiusCircle = null;
@@ -413,11 +423,12 @@ function renderVisualization() {
     return;
   }
 
+  const activeMask =
+    state.boundaryScope === 'radius'
+      ? buildRadiusMask(state.dataset, state.sourceIndex, state.boundaryRadiusKm)
+      : state.dataset.insideMask;
   const analysis = runElevationAnalysis(state.dataset, {
-    activeMask:
-      state.boundaryScope === 'radius'
-        ? buildRadiusMask(state.dataset, state.sourceIndex, state.boundaryRadiusKm)
-        : state.dataset.insideMask,
+    activeMask,
     sourceIndex: state.sourceIndex,
     mode: state.mode,
     upperAllowance: state.upperAllowance,
@@ -426,6 +437,18 @@ function renderVisualization() {
     ascentRoundTrip: state.ascentRoundTrip,
     contiguousOnly: state.contiguousOnly,
   });
+  const populationSummary = state.populationDataset
+    ? {
+        dataset: state.populationDataset,
+        summary: summarizePopulation(state.populationDataset, analysis.mask, activeMask),
+      }
+    : null;
+  const populationStatus =
+    state.populationDataset === undefined
+      ? 'loading'
+      : state.populationDataset
+        ? 'ready'
+        : 'unavailable';
 
   const imageUrl = renderAnalysisOverlay(state.dataset, analysis, {
     mode: state.mode,
@@ -442,17 +465,51 @@ function renderVisualization() {
 
   updateBoundaryRadiusCircle();
   setStatusView(nodes, 'Ready');
-  updateStatsView(nodes, state.dataset, state.sourceIndex, analysis, {
-    boundaryRadiusKm: state.boundaryRadiusKm,
-    boundaryScope: state.boundaryScope,
-    cityLabel: state.cityLabel,
-    mode: state.mode,
-    upperAllowance: state.upperAllowance,
-    lowerAllowance: state.lowerAllowance,
-    ascentBudget: state.ascentBudget,
-    ascentRoundTrip: state.ascentRoundTrip,
-    contiguousOnly: state.contiguousOnly,
-  });
+  updateStatsView(
+    nodes,
+    state.dataset,
+    state.sourceIndex,
+    analysis,
+    populationSummary,
+    populationStatus,
+    {
+      boundaryRadiusKm: state.boundaryRadiusKm,
+      boundaryScope: state.boundaryScope,
+      cityLabel: state.cityLabel,
+      mode: state.mode,
+      upperAllowance: state.upperAllowance,
+      lowerAllowance: state.lowerAllowance,
+      ascentBudget: state.ascentBudget,
+      ascentRoundTrip: state.ascentRoundTrip,
+      contiguousOnly: state.contiguousOnly,
+    },
+  );
+}
+
+async function hydratePopulationDataset(
+  loadId: number,
+  dataset: TerrainDataset,
+  cityLabel: string,
+) {
+  try {
+    const populationDataset = await loadPopulationDataset(dataset, cityLabel);
+
+    if (loadId !== activeLoadId || state.dataset !== dataset) {
+      return;
+    }
+
+    state.populationDataset = populationDataset;
+    scheduleRender();
+  } catch (error) {
+    console.error(error);
+
+    if (loadId !== activeLoadId || state.dataset !== dataset) {
+      return;
+    }
+
+    state.populationDataset = null;
+    scheduleRender();
+  }
 }
 
 function setSourceMarker(index: number) {

@@ -29,6 +29,8 @@ export interface AppNodes {
   connectedToggle: HTMLInputElement;
   statusNode: HTMLElement;
   elevationStat: HTMLElement;
+  populationStat: HTMLElement;
+  populationNote: HTMLElement;
   shareStat: HTMLElement;
   areaStat: HTMLElement;
   coordsStat: HTMLElement;
@@ -112,9 +114,16 @@ export function setupAppShell(
                 <span class="stat-label">Start elevation</span>
                 <strong id="elevation-stat">…</strong>
               </article>
+              <article>
+                <span class="stat-label">Approx residents</span>
+                <strong id="population-stat">—</strong>
+              </article>
             </div>
 
             <p id="rule-summary" class="rule-summary">Loading terrain…</p>
+            <p id="population-note" class="sources">
+              Population estimate unavailable.
+            </p>
           </div>
         </div>
 
@@ -271,6 +280,8 @@ export function setupAppShell(
     connectedToggle: must<HTMLInputElement>('#connected-toggle'),
     statusNode: must<HTMLElement>('#status'),
     elevationStat: must<HTMLElement>('#elevation-stat'),
+    populationStat: must<HTMLElement>('#population-stat'),
+    populationNote: must<HTMLElement>('#population-note'),
     shareStat: must<HTMLElement>('#share-stat'),
     areaStat: must<HTMLElement>('#area-stat'),
     coordsStat: must<HTMLElement>('#coords-stat'),

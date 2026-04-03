@@ -1,6 +1,7 @@
 import type { AnalysisResult } from './analysis';
 import type { AppNodes } from './app-shell';
 import type { BoundaryGeoJson } from './boundary';
+import type { PopulationDataset, PopulationSummary } from './population';
 import { cellLatLng, elevationAtIndex, findNearestInsideIndex, indexFromLatLng, type TerrainDataset } from './terrain';
 
 const PRAGUE_DEFAULT_ANCHOR = {
@@ -13,6 +14,11 @@ export function updateStatsView(
   dataset: TerrainDataset,
   sourceIndex: number,
   analysis: AnalysisResult,
+  population: {
+    dataset: PopulationDataset;
+    summary: PopulationSummary;
+  } | null,
+  populationStatus: 'loading' | 'ready' | 'unavailable',
   state: {
     boundaryRadiusKm: number;
     boundaryScope: 'city' | 'radius';
@@ -36,6 +42,18 @@ export function updateStatsView(
   nodes.shareStat.textContent = `${(share * 100).toFixed(1)}%`;
   nodes.areaStat.textContent = `${analysis.matchedAreaKm2.toFixed(1)} km²`;
   nodes.coordsStat.textContent = `${sourcePoint.lat.toFixed(4)}, ${sourcePoint.lng.toFixed(4)}`;
+  nodes.populationStat.textContent =
+    populationStatus === 'loading'
+      ? '…'
+      : population
+        ? `≈ ${formatPopulation(population.summary.matchedPopulation)}`
+        : '—';
+  nodes.populationNote.textContent =
+    populationStatus === 'loading'
+      ? 'Loading Prague population estimate…'
+      : population
+        ? `Prague-only estimate. Source: ${population.dataset.sourceName}. ${population.dataset.method}`
+        : 'Population estimate unavailable for this city or boundary.';
 
   const baseRule =
     state.mode === 'ceiling'
@@ -111,4 +129,10 @@ function isPrague(cityQuery: string, cityLabel: string) {
 
 function formatRadius(radiusKm: number) {
   return Number.isInteger(radiusKm) ? `${radiusKm} km` : `${radiusKm.toFixed(1)} km`;
+}
+
+function formatPopulation(population: number) {
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 0,
+  }).format(Math.round(population));
 }

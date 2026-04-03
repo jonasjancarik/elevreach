@@ -1,0 +1,16 @@
+{
+  "cityQuery": "Prague, Czechia",
+  "generatedAt": "2026-04-03T21:39:18.531Z",
+  "method": "Nearest WorldPop 2020 population pixel, converted to density and projected onto the bundled Prague terrain grid.",
+  "sampleStep": 2,
+  "sourceName": "WorldPop Czech Republic population count 2020",
+  "sourceUrl": "https://data.worldpop.org/GIS/Population/Global_2000_2020/2020/CZE/cze_ppp_2020.tif",
+  "xMax": 567133,
+  "xMin": 565711,
+  "yMax": 355891,
+  "yMin": 354805,
+  "zoom": 12,
+  "cols": 712,
+  "rows": 544,
+  "totalPopulation": 1611033
+}
