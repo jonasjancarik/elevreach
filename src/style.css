@@ -422,14 +422,29 @@ h1 {
 }
 
 .mode-switch label {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
   padding: 9px 10px;
   border-radius: 14px;
   background: var(--surface-muted);
   border: 1px solid var(--surface-muted-strong);
 }
 
+.mode-switch label span {
+  min-width: 0;
+  font-size: 0.95rem;
+  line-height: 1.15;
+  text-align: center;
+  text-wrap: balance;
+}
+
 .mode-switch:not(.sub-switch) {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.boundary-switch {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .sub-switch {

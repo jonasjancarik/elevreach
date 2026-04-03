@@ -3,6 +3,7 @@ import { gridIndex, type TerrainDataset } from './terrain';
 export type AnalysisMode = 'band' | 'ceiling' | 'ascent';
 
 export interface AnalysisOptions {
+  activeMask: Uint8Array;
   sourceIndex: number;
   mode: AnalysisMode;
   upperAllowance: number;
@@ -37,16 +38,17 @@ export function runElevationAnalysis(
   options: AnalysisOptions,
 ): AnalysisResult {
   const sourceElevation = dataset.elevations[options.sourceIndex];
-  const insideArea = summarizeAreas(dataset, new Uint8Array(dataset.insideMask));
+  const insideArea = summarizeAreas(dataset, options.activeMask, options.activeMask);
 
   if (options.mode === 'ascent') {
     const { mask, costs } = ascentBudgetMask(
       dataset,
+      options.activeMask,
       options.sourceIndex,
       options.ascentBudget,
       options.ascentRoundTrip,
     );
-    const { matchedAreaKm2 } = summarizeAreas(dataset, mask);
+    const { matchedAreaKm2 } = summarizeAreas(dataset, mask, options.activeMask);
 
     return {
       mask,
@@ -66,7 +68,7 @@ export function runElevationAnalysis(
   const candidateMask = new Uint8Array(dataset.elevations.length);
 
   for (let cellIndex = 0; cellIndex < dataset.elevations.length; cellIndex += 1) {
-    if (dataset.insideMask[cellIndex] === 0) {
+    if (options.activeMask[cellIndex] === 0) {
       continue;
     }
 
@@ -78,9 +80,13 @@ export function runElevationAnalysis(
   }
 
   const mask = options.contiguousOnly
-    ? connectedMask(dataset, candidateMask, options.sourceIndex)
+    ? connectedMask(dataset, options.activeMask, candidateMask, options.sourceIndex)
     : candidateMask;
-  const { matchedAreaKm2, insideAreaKm2 } = summarizeAreas(dataset, mask);
+  const { matchedAreaKm2, insideAreaKm2 } = summarizeAreas(
+    dataset,
+    mask,
+    options.activeMask,
+  );
 
   return {
     mask,
@@ -94,10 +100,11 @@ export function runElevationAnalysis(
 
 function connectedMask(
   dataset: TerrainDataset,
+  activeMask: Uint8Array,
   candidateMask: Uint8Array,
   sourceIndex: number,
 ) {
-  if (candidateMask[sourceIndex] === 0) {
+  if (candidateMask[sourceIndex] === 0 || activeMask[sourceIndex] === 0) {
     return new Uint8Array(candidateMask.length);
   }
 
@@ -147,20 +154,21 @@ function connectedMask(
 
 function ascentBudgetMask(
   dataset: TerrainDataset,
+  activeMask: Uint8Array,
   sourceIndex: number,
   ascentBudget: number,
   roundTrip: boolean,
 ) {
-  const outwardCosts = leastAscentCosts(dataset, sourceIndex, false);
+  const outwardCosts = leastAscentCosts(dataset, activeMask, sourceIndex, false);
   const returnCosts = roundTrip
-    ? leastAscentCosts(dataset, sourceIndex, true)
+    ? leastAscentCosts(dataset, activeMask, sourceIndex, true)
     : null;
   const costs = new Float32Array(dataset.elevations.length);
   costs.fill(Number.POSITIVE_INFINITY);
   const mask = new Uint8Array(dataset.elevations.length);
 
   for (let cellIndex = 0; cellIndex < dataset.elevations.length; cellIndex += 1) {
-    if (dataset.insideMask[cellIndex] === 0) {
+    if (activeMask[cellIndex] === 0) {
       continue;
     }
 
@@ -183,6 +191,7 @@ function ascentBudgetMask(
 
 function leastAscentCosts(
   dataset: TerrainDataset,
+  activeMask: Uint8Array,
   sourceIndex: number,
   reverse: boolean,
 ) {
@@ -219,7 +228,7 @@ function leastAscentCosts(
 
       const nextIndex = gridIndex(dataset, nextCol, nextRow);
 
-      if (dataset.insideMask[nextIndex] === 0) {
+      if (activeMask[nextIndex] === 0) {
         return;
       }
 
@@ -241,7 +250,11 @@ function leastAscentCosts(
   return costs;
 }
 
-function summarizeAreas(dataset: TerrainDataset, mask: Uint8Array) {
+function summarizeAreas(
+  dataset: TerrainDataset,
+  mask: Uint8Array,
+  activeMask: Uint8Array,
+) {
   let matchedAreaKm2 = 0;
   let insideAreaKm2 = 0;
 
@@ -252,7 +265,7 @@ function summarizeAreas(dataset: TerrainDataset, mask: Uint8Array) {
     for (let col = 0; col < dataset.cols; col += 1) {
       const cellIndex = gridIndex(dataset, col, row);
 
-      if (dataset.insideMask[cellIndex] === 1) {
+      if (activeMask[cellIndex] === 1) {
         insideCells += 1;
       }
 

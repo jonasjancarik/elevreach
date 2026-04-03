@@ -137,6 +137,25 @@ export function indexFromLatLng(
   return findNearestInsideIndex(dataset, col, row);
 }
 
+export function indexFromLatLngClamped(
+  dataset: TerrainDataset,
+  lng: number,
+  lat: number,
+) {
+  const col = clamp(
+    Math.round((lonToWorldX(lng, dataset.zoom) - dataset.xMin) / dataset.sampleStep),
+    0,
+    dataset.cols - 1,
+  );
+  const row = clamp(
+    Math.round((latToWorldY(lat, dataset.zoom) - dataset.yMin) / dataset.sampleStep),
+    0,
+    dataset.rows - 1,
+  );
+
+  return index(dataset.cols, col, row);
+}
+
 export function findNearestInsideIndex(
   dataset: TerrainDataset,
   roughCol: number,
@@ -194,6 +213,36 @@ export function elevationAtIndex(dataset: TerrainDataset, cellIndex: number) {
 
 export function gridIndex(dataset: TerrainDataset, col: number, row: number) {
   return index(dataset.cols, col, row);
+}
+
+export function buildRadiusMask(
+  dataset: TerrainDataset,
+  centerIndex: number,
+  radiusKm: number,
+) {
+  const mask = new Uint8Array(dataset.elevations.length);
+  const radiusMeters = radiusKm * 1000;
+  const center = cellLatLng(dataset, centerIndex);
+  const metersPerSample = metersPerPixel(center.lat, dataset.zoom) * dataset.sampleStep;
+  const radiusSamples = radiusMeters / metersPerSample;
+  const radiusSquared = radiusSamples * radiusSamples;
+  const centerRow = Math.floor(centerIndex / dataset.cols);
+  const centerCol = centerIndex - centerRow * dataset.cols;
+
+  for (let row = 0; row < dataset.rows; row += 1) {
+    const dy = row - centerRow;
+
+    for (let col = 0; col < dataset.cols; col += 1) {
+      const dx = col - centerCol;
+      const distanceSquared = dx * dx + dy * dy;
+
+      if (distanceSquared <= radiusSquared) {
+        mask[index(dataset.cols, col, row)] = 1;
+      }
+    }
+  }
+
+  return mask;
 }
 
 function rasterizeInsideMask(

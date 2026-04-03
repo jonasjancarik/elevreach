@@ -3,12 +3,19 @@ import type { AppNodes } from './app-shell';
 import type { BoundaryGeoJson } from './boundary';
 import { cellLatLng, elevationAtIndex, findNearestInsideIndex, indexFromLatLng, type TerrainDataset } from './terrain';
 
+const PRAGUE_DEFAULT_ANCHOR = {
+  lat: 50.0719419,
+  lng: 14.4040297,
+};
+
 export function updateStatsView(
   nodes: AppNodes,
   dataset: TerrainDataset,
   sourceIndex: number,
   analysis: AnalysisResult,
   state: {
+    boundaryRadiusKm: number;
+    boundaryScope: 'city' | 'radius';
     cityLabel: string;
     mode: 'band' | 'ceiling' | 'ascent';
     upperAllowance: number;
@@ -32,31 +39,49 @@ export function updateStatsView(
 
   const baseRule =
     state.mode === 'ceiling'
-      ? `Cells at ${sourceElevation.toFixed(0)} m + ${state.upperAllowance} m or lower`
+      ? `Areas at ${sourceElevation.toFixed(0)} m + ${state.upperAllowance} m or lower`
       : state.mode === 'ascent'
         ? state.ascentRoundTrip
-          ? `Cells where uphill there + uphill back, on least-ascent terrain paths, stays ≤ ${state.ascentBudget} m`
-          : `Cells reachable on the least-ascent terrain path with total uphill ≤ ${state.ascentBudget} m`
-        : `Cells inside ${sourceElevation.toFixed(0)} m - ${state.lowerAllowance} m / + ${state.upperAllowance} m`;
+          ? `Areas where the round trip on the flattest paths has ≤ ${state.ascentBudget} m total climbing`
+          : `Areas reachable on the flattest path with ≤ ${state.ascentBudget} m total climbing`
+        : `Areas between ${sourceElevation.toFixed(0)} m - ${state.lowerAllowance} m and + ${state.upperAllowance} m`;
   const scope =
     state.mode === 'ascent'
-      ? 'from the anchor'
+      ? state.boundaryScope === 'radius'
+        ? `from the start point within a ${formatRadius(state.boundaryRadiusKm)} radius`
+        : 'from the start point'
       : state.contiguousOnly
-        ? 'connected to the anchor'
-        : `across ${state.cityLabel}`;
+        ? state.boundaryScope === 'radius'
+          ? `connected to the start point within a ${formatRadius(state.boundaryRadiusKm)} radius`
+          : 'connected to the start point'
+        : state.boundaryScope === 'radius'
+          ? `across the ${formatRadius(state.boundaryRadiusKm)} radius`
+          : `across ${state.cityLabel}`;
   const caveat =
     state.mode === 'ascent'
       ? state.ascentRoundTrip
-        ? 'Terrain path only; best outbound and return paths can differ, and roads may be worse.'
-        : 'Terrain path only; road detours can add more climbing.'
+        ? 'Terrain path only. Real roads will add more climbing.'
+        : 'Terrain path only. Real roads will add more climbing.'
       : state.mode === 'ceiling'
-        ? 'Useful as a ceiling, not a promise of an easy ride.'
+        ? 'Repeated short hills may add up to a lot of climbing.'
         : '';
 
   nodes.ruleSummary.textContent = `${baseRule}. Showing area ${scope}.${caveat ? ` ${caveat}` : ''}`;
 }
 
-export function pickDefaultAnchor(dataset: TerrainDataset, boundary: BoundaryGeoJson) {
+export function pickDefaultAnchor(
+  dataset: TerrainDataset,
+  boundary: BoundaryGeoJson,
+  cityQuery: string,
+  cityLabel: string,
+) {
+  if (isPrague(cityQuery, cityLabel)) {
+    return (
+      indexFromLatLng(dataset, PRAGUE_DEFAULT_ANCHOR.lng, PRAGUE_DEFAULT_ANCHOR.lat) ??
+      findNearestInsideIndex(dataset, dataset.cols / 2, dataset.rows / 2)
+    );
+  }
+
   const [minLng, minLat, maxLng, maxLat] = boundary.bbox;
   const centerLng = (minLng + maxLng) / 2;
   const centerLat = (minLat + maxLat) / 2;
@@ -77,4 +102,13 @@ export function setStatusView(nodes: AppNodes, message: string, isError = false)
   nodes.statusNode.textContent = message;
   nodes.statusNode.classList.toggle('is-loading', !isError && message !== 'Ready');
   nodes.statusNode.classList.toggle('is-error', isError);
+}
+
+function isPrague(cityQuery: string, cityLabel: string) {
+  return /(^|,|\s)(prague|praha)(,|\s|$)/i.test(cityQuery) ||
+    /(^|,|\s)(prague|praha)(,|\s|$)/i.test(cityLabel);
+}
+
+function formatRadius(radiusKm: number) {
+  return Number.isInteger(radiusKm) ? `${radiusKm} km` : `${radiusKm.toFixed(1)} km`;
 }

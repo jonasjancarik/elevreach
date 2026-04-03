@@ -13,8 +13,10 @@ import {
 } from './lib/boundary';
 import { renderAnalysisOverlay } from './lib/render';
 import {
+  buildRadiusMask,
   cellLatLng,
   findNearestInsideIndex,
+  indexFromLatLngClamped,
   indexFromLatLng,
   loadTerrainDataset,
   type TerrainDataset,
@@ -33,6 +35,8 @@ type PresetKey = 'flat-5' | 'flat-15' | 'ceiling-5' | 'ascent-25';
 
 interface AppState {
   appearance: AppearancePreference;
+  boundaryRadiusKm: number;
+  boundaryScope: 'city' | 'radius';
   boundary: BoundaryGeoJson | null;
   cityLabel: string;
   dataset: TerrainDataset | null;
@@ -56,11 +60,13 @@ const initialAppearance = getStoredAppearance();
 
 const state: AppState = {
   appearance: initialAppearance,
+  boundaryRadiusKm: Number(nodes.boundaryRadiusRange.value),
+  boundaryScope: 'city',
   boundary: null,
   cityLabel: DEFAULT_CITY_QUERY,
   dataset: null,
   sourceIndex: null,
-  mode: 'band',
+  mode: 'ascent',
   upperAllowance: Number(nodes.upperRange.value),
   lowerAllowance: Number(nodes.lowerRange.value),
   ascentBudget: Number(nodes.budgetRange.value),
@@ -82,6 +88,7 @@ L.control
 let resolvedTheme: ResolvedTheme = resolveTheme(initialAppearance);
 let basemapLayer = createBasemapLayer(resolvedTheme).addTo(map);
 let boundaryLayer: L.GeoJSON | null = null;
+let boundaryRadiusCircle: L.Circle | null = null;
 let sourceMarker: L.CircleMarker | null = null;
 let overlayLayer: L.ImageOverlay | null = null;
 let renderScheduled = false;
@@ -162,11 +169,14 @@ map.on('click', (event: LeafletMouseEvent) => {
     return;
   }
 
-  const candidate = indexFromLatLng(
-    state.dataset,
-    event.latlng.lng,
-    event.latlng.lat,
-  );
+  const candidate =
+    state.boundaryScope === 'radius'
+      ? indexFromLatLngClamped(state.dataset, event.latlng.lng, event.latlng.lat)
+      : indexFromLatLng(
+          state.dataset,
+          event.latlng.lng,
+          event.latlng.lat,
+        );
   const sourceIndex =
     candidate ??
     findNearestInsideIndex(
@@ -230,7 +240,12 @@ async function loadCity(query: string, useBundled: boolean) {
     }
 
     state.dataset = dataset;
-    state.sourceIndex = pickDefaultAnchor(dataset, loadedBoundary.boundary);
+    state.sourceIndex = pickDefaultAnchor(
+      dataset,
+      loadedBoundary.boundary,
+      loadedBoundary.query,
+      loadedBoundary.label,
+    );
     nodes.searchInput.value = loadedBoundary.query;
 
     if (state.sourceIndex === null) {
@@ -281,6 +296,8 @@ function renderBoundary(boundary: BoundaryGeoJson) {
 function clearVisualization() {
   state.dataset = null;
   state.sourceIndex = null;
+  boundaryRadiusCircle?.remove();
+  boundaryRadiusCircle = null;
   overlayLayer?.remove();
   overlayLayer = null;
   sourceMarker?.remove();
@@ -303,6 +320,8 @@ function syncStateFromControls() {
   );
 
   state.mode = parseMode(modeInput?.value);
+  state.boundaryRadiusKm = Number(nodes.boundaryRadiusRange.value);
+  state.boundaryScope = parseBoundaryScope();
   state.upperAllowance = Number(nodes.upperRange.value);
   state.lowerAllowance = Number(nodes.lowerRange.value);
   state.ascentBudget = Number(nodes.budgetRange.value);
@@ -313,8 +332,10 @@ function syncStateFromControls() {
   nodes.upperOutput.textContent = `${state.upperAllowance} m`;
   nodes.lowerOutput.textContent =
     state.mode === 'band' ? `${state.lowerAllowance} m` : '∞ drop';
+  nodes.boundaryRadiusOutput.textContent = formatBoundaryRadius(state.boundaryRadiusKm);
   nodes.budgetOutput.textContent = `${state.ascentBudget} m`;
 
+  nodes.boundaryRadiusRange.disabled = state.boundaryScope !== 'radius';
   nodes.upperRange.disabled = state.mode === 'ascent';
   nodes.lowerRange.disabled = state.mode !== 'band';
   nodes.budgetRange.disabled = state.mode !== 'ascent';
@@ -327,18 +348,27 @@ function syncStateFromControls() {
     nodes.connectedToggle.checked = true;
   }
 
+  nodes.boundaryRadiusHint.textContent =
+    state.boundaryScope === 'radius'
+      ? 'Radius mode follows the selected map point. Click anywhere to move the search area.'
+      : `City mode searches within the borders of ${state.cityLabel}.`;
+  nodes.clickHint.textContent =
+    state.boundaryScope === 'radius'
+      ? 'Click map to move start + boundary'
+      : 'Click map to move start';
+
   nodes.lowerHint.textContent =
     state.mode === 'band'
-      ? 'Band mode keeps cells inside the upper and lower elevation limits.'
+      ? 'Flat zone limits both how much you can go up and down.'
       : state.mode === 'ceiling'
-        ? 'Ceiling mode includes every lower cell, which can still understate repeated climbs.'
-        : 'Drop limit is not used in cumulative ascent mode.';
+        ? 'Elevation cap ignores drops entirely, so repeated short climbs may add up.'
+        : 'Drop limit is not used in total climbing mode.';
   nodes.budgetHint.textContent =
     state.mode === 'ascent'
       ? state.ascentRoundTrip
-        ? 'Counts uphill meters there and uphill meters back, each on the least-ascent terrain path.'
-        : 'Least-ascent terrain path only. Long flat detours are still cheap here.'
-      : 'Used only in cumulative ascent mode.';
+        ? 'Measures the uphill climb to get there and the uphill climb to get back.'
+        : 'Measures total climbing one-way. Flat detours are considered "free".'
+      : 'Used only in total climbing mode.';
 }
 
 function applyPreset(preset: PresetKey) {
@@ -451,6 +481,10 @@ function renderVisualization() {
   }
 
   const analysis = runElevationAnalysis(state.dataset, {
+    activeMask:
+      state.boundaryScope === 'radius'
+        ? buildRadiusMask(state.dataset, state.sourceIndex, state.boundaryRadiusKm)
+        : state.dataset.insideMask,
     sourceIndex: state.sourceIndex,
     mode: state.mode,
     upperAllowance: state.upperAllowance,
@@ -473,8 +507,11 @@ function renderVisualization() {
     overlayLayer.setUrl(imageUrl);
   }
 
+  updateBoundaryRadiusCircle();
   setStatusView(nodes, 'Ready');
   updateStatsView(nodes, state.dataset, state.sourceIndex, analysis, {
+    boundaryRadiusKm: state.boundaryRadiusKm,
+    boundaryScope: state.boundaryScope,
     cityLabel: state.cityLabel,
     mode: state.mode,
     upperAllowance: state.upperAllowance,
@@ -511,6 +548,7 @@ function setSourceMarker(index: number) {
 
 function updateMapThemeStyles() {
   boundaryLayer?.setStyle(boundaryStyle());
+  updateBoundaryRadiusCircle();
 
   if (sourceMarker) {
     sourceMarker.setStyle({
@@ -552,4 +590,48 @@ function markerStroke() {
 
 function markerFill() {
   return resolvedTheme === 'dark' ? '#edf3ef' : '#101a1d';
+}
+
+function updateBoundaryRadiusCircle() {
+  if (!state.dataset || state.sourceIndex === null || state.boundaryScope !== 'radius') {
+    boundaryRadiusCircle?.remove();
+    boundaryRadiusCircle = null;
+    return;
+  }
+
+  const point = cellLatLng(state.dataset, state.sourceIndex);
+  const radiusMeters = state.boundaryRadiusKm * 1000;
+  const stroke = resolvedTheme === 'dark' ? '#efc86d' : '#8e5c06';
+  const fill = resolvedTheme === 'dark' ? '#efc86d' : '#f0ab35';
+
+  if (boundaryRadiusCircle === null) {
+    boundaryRadiusCircle = L.circle(point, {
+      color: stroke,
+      weight: 2,
+      dashArray: '10 8',
+      fillOpacity: 0.05,
+      fillColor: fill,
+      interactive: false,
+      radius: radiusMeters,
+    }).addTo(map);
+  } else {
+    boundaryRadiusCircle.setLatLng(point);
+    boundaryRadiusCircle.setRadius(radiusMeters);
+    boundaryRadiusCircle.setStyle({
+      color: stroke,
+      fillColor: fill,
+    });
+  }
+}
+
+function parseBoundaryScope() {
+  const selected = nodes.controls.querySelector<HTMLInputElement>(
+    'input[name="boundary-scope"]:checked',
+  );
+
+  return selected?.value === 'radius' ? 'radius' : 'city';
+}
+
+function formatBoundaryRadius(radiusKm: number) {
+  return Number.isInteger(radiusKm) ? `${radiusKm} km` : `${radiusKm.toFixed(1)} km`;
 }

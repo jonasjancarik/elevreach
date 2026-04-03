@@ -2,6 +2,11 @@ import type { AppearancePreference } from './theme';
 
 export interface AppNodes {
   appearanceButtons: HTMLButtonElement[];
+  boundaryRadiusHint: HTMLElement;
+  boundaryRadiusOutput: HTMLOutputElement;
+  boundaryRadiusRange: HTMLInputElement;
+  boundaryScopeInputs: HTMLInputElement[];
+  clickHint: HTMLElement;
   controls: HTMLFormElement;
   searchForm: HTMLFormElement;
   searchInput: HTMLInputElement;
@@ -57,9 +62,9 @@ export function setupAppShell(
             </div>
           </div>
         </div>
-        <h1>Load a city. See which parts share a climb budget.</h1>
+        <h1>How much of the city is an easy trip?</h1>
         <p class="lede">
-          Same-height bands for flat trips. Elevation ceilings for rough downhill intuition. Cumulative ascent for a more honest one-way or back-and-forth terrain budget.
+          See the areas you can reach from any starting point without a lot of effort. Click anywhere on the map to explore your accessible zone.
         </p>
 
         <form class="city-form" id="city-form">
@@ -83,95 +88,116 @@ export function setupAppShell(
         </div>
 
         <div class="preset-bar" aria-label="Presets">
-          <button type="button" class="preset active" data-preset="flat-5">Flat ±5 m</button>
-          <button type="button" class="preset" data-preset="flat-15">Flat ±15 m</button>
-          <button type="button" class="preset" data-preset="ceiling-5">Ceiling +5 m</button>
-          <button type="button" class="preset" data-preset="ascent-25">Ascent ≤25 m</button>
+          <button type="button" class="preset" data-preset="flat-5">Flat ±5 m</button>
+          <button type="button" class="preset active" data-preset="flat-15">Flat ±15 m</button>
+          <button type="button" class="preset" data-preset="ceiling-5">Max +5 m</button>
+          <button type="button" class="preset" data-preset="ascent-25">Climb ≤25 m</button>
         </div>
 
         <form class="controls" id="controls">
-          <fieldset class="mode-switch">
-            <legend>Mode</legend>
+          <fieldset class="mode-switch sub-switch boundary-switch">
+            <legend>Search area</legend>
             <label>
-              <input type="radio" name="mode" value="band" checked />
-              <span>Elevation band</span>
+              <input type="radio" name="boundary-scope" value="city" checked />
+              <span>City limits</span>
             </label>
             <label>
-              <input type="radio" name="mode" value="ceiling" />
-              <span>Elevation ceiling</span>
-            </label>
-            <label>
-              <input type="radio" name="mode" value="ascent" />
-              <span>Cumulative ascent</span>
+              <input type="radio" name="boundary-scope" value="radius" />
+              <span>Radius</span>
             </label>
           </fieldset>
 
           <label class="control">
             <div class="control-head">
-              <span>Allowed climb</span>
-              <output id="upper-output" for="upper-range">5 m</output>
+              <span>Search distance</span>
+              <output id="boundary-radius-output" for="boundary-radius-range">6 km</output>
             </div>
-            <input id="upper-range" type="range" min="0" max="40" step="1" value="5" />
+            <input id="boundary-radius-range" type="range" min="1" max="25" step="0.5" value="6" />
+            <small id="boundary-radius-hint">Radius mode follows the selected map point.</small>
+          </label>
+
+          <fieldset class="mode-switch">
+            <legend>Analysis mode</legend>
+            <label>
+              <input type="radio" name="mode" value="band" />
+              <span>Flat zone</span>
+            </label>
+            <label>
+              <input type="radio" name="mode" value="ceiling" />
+              <span>Elevation cap</span>
+            </label>
+            <label>
+              <input type="radio" name="mode" value="ascent" checked />
+              <span>Total climbing</span>
+            </label>
+          </fieldset>
+
+          <label class="control">
+            <div class="control-head">
+              <span>Max climb up</span>
+              <output id="upper-output" for="upper-range">15 m</output>
+            </div>
+            <input id="upper-range" type="range" min="0" max="40" step="1" value="15" />
           </label>
 
           <label class="control">
             <div class="control-head">
-              <span>Allowed drop</span>
-              <output id="lower-output" for="lower-range">5 m</output>
+              <span>Max drop down</span>
+              <output id="lower-output" for="lower-range">15 m</output>
             </div>
-            <input id="lower-range" type="range" min="0" max="80" step="1" value="5" />
-            <small id="lower-hint">Used only in band mode.</small>
+            <input id="lower-range" type="range" min="0" max="80" step="1" value="15" />
+            <small id="lower-hint">Used only in flat zone mode.</small>
           </label>
 
           <label class="control">
             <div class="control-head">
-              <span>Cumulative ascent budget</span>
+              <span>Max total climbing</span>
               <output id="budget-output" for="budget-range">25 m</output>
             </div>
             <input id="budget-range" type="range" min="0" max="160" step="5" value="25" />
-            <small id="budget-hint">Used only in cumulative ascent mode.</small>
+            <small id="budget-hint">Used only in total climbing mode.</small>
           </label>
 
           <fieldset class="mode-switch sub-switch">
-            <legend>Ascent budget applies to</legend>
+            <legend>Apply climbing limit to</legend>
             <label>
               <input type="radio" name="ascent-scope" value="one-way" checked />
-              <span>One way</span>
+              <span>One-way trip</span>
             </label>
             <label>
               <input type="radio" name="ascent-scope" value="round-trip" />
-              <span>Back and forth</span>
+              <span>Round trip</span>
             </label>
           </fieldset>
 
           <label class="toggle">
             <input id="connected-toggle" type="checkbox" checked />
-            <span>Keep only the connected area from the picked point</span>
+            <span>Show only directly reachable areas (no jumps)</span>
           </label>
         </form>
 
         <div class="stats">
           <article>
-            <span class="stat-label">Anchor elevation</span>
+            <span class="stat-label">Start elevation</span>
             <strong id="elevation-stat">…</strong>
           </article>
           <article>
-            <span class="stat-label">Matched share of city</span>
+            <span class="stat-label">Reachable area within boundary</span>
             <strong id="share-stat">…</strong>
           </article>
           <article>
-            <span class="stat-label">Approx area</span>
+            <span class="stat-label">Approx. area</span>
             <strong id="area-stat">…</strong>
           </article>
           <article>
-            <span class="stat-label">Anchor coordinates</span>
+            <span class="stat-label">Start coordinates</span>
             <strong id="coords-stat">…</strong>
           </article>
         </div>
 
         <p id="rule-summary" class="rule-summary">Loading terrain…</p>
         <p class="note">
-          Terrain-only model. Cumulative ascent uses the least-uphill terrain path, not real streets, bridges, or intersections.
+          Terrain-only model. Total climbing uses the least-uphill terrain path, not real streets, bridges, or intersections.
         </p>
         <p class="sources">
           Basemap: CARTO raster tiles. Boundary search: OpenStreetMap/Nominatim. Elevation: Terrarium tiles.
@@ -181,7 +207,7 @@ export function setupAppShell(
       <section class="stage">
         <div id="map" aria-label="City elevation map"></div>
         <div class="map-chrome">
-          <div class="chip">Click map to move anchor</div>
+          <div id="click-hint" class="chip">Click map to move anchor</div>
           <div class="legend">
             <span class="legend-swatch"></span>
             <span>matched cells</span>
@@ -196,6 +222,13 @@ export function setupAppShell(
     appearanceButtons: Array.from(
       document.querySelectorAll<HTMLButtonElement>('[data-appearance]'),
     ),
+    boundaryRadiusHint: must<HTMLElement>('#boundary-radius-hint'),
+    boundaryRadiusOutput: must<HTMLOutputElement>('#boundary-radius-output'),
+    boundaryRadiusRange: must<HTMLInputElement>('#boundary-radius-range'),
+    boundaryScopeInputs: Array.from(
+      document.querySelectorAll<HTMLInputElement>('input[name="boundary-scope"]'),
+    ),
+    clickHint: must<HTMLElement>('#click-hint'),
     controls: must<HTMLFormElement>('#controls'),
     searchForm: must<HTMLFormElement>('#city-form'),
     searchInput: must<HTMLInputElement>('#city-query'),
