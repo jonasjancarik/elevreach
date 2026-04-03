@@ -174,7 +174,7 @@ export function setupAppShell(
           Terrain-only model. Cumulative ascent uses the least-uphill terrain path, not real streets, bridges, or intersections.
         </p>
         <p class="sources">
-          Basemap: Stadia Maps Alidade. Boundary search: OpenStreetMap/Nominatim. Elevation: Terrarium tiles.
+          Basemap: CARTO raster tiles. Boundary search: OpenStreetMap/Nominatim. Elevation: Terrarium tiles.
         </p>
       </aside>
 
