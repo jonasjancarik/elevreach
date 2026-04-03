@@ -98,9 +98,9 @@ export function setupAppShell(
         <!-- Bottom Center -->
         <div class="floating-panel bottom-center">
           <div class="preset-bar" aria-label="Presets">
-            <button type="button" class="preset" data-preset="flat-5">🚶 Flat Walk</button>
-            <button type="button" class="preset" data-preset="flat-15">🚲 Easy Ride</button>
-            <button type="button" class="preset active" data-preset="ascent-25">🏃 Workout</button>
+            <button type="button" class="preset" data-preset="flat-walk">🚶 Flat Walk</button>
+            <button type="button" class="preset active" data-preset="ride-low">🚲 Low-Climb Ride</button>
+            <button type="button" class="preset" data-preset="ride-everyday">🚴 Everyday Ride</button>
             <button type="button" class="preset custom-preset" id="custom-preset-btn">⚙️ Custom</button>
           </div>
 
@@ -109,25 +109,25 @@ export function setupAppShell(
               <fieldset class="mode-switch sub-switch boundary-switch">
                 <legend>Search area</legend>
                 <label>
-                  <input type="radio" name="boundary-scope" value="city" checked />
+                  <input type="radio" name="boundary-scope" value="city" />
                   <span>City limits</span>
                 </label>
                 <label>
-                  <input type="radio" name="boundary-scope" value="radius" />
+                  <input type="radio" name="boundary-scope" value="radius" checked />
                   <span>Radius</span>
                 </label>
               </fieldset>
 
               <label class="control" id="boundary-radius-control">
                 <div class="control-head">
-                  <span>Search distance</span>
-                  <output id="boundary-radius-output" for="boundary-radius-range">6 km</output>
+                  <span>Trip radius</span>
+                  <output id="boundary-radius-output" for="boundary-radius-range">5 km</output>
                 </div>
-                <input id="boundary-radius-range" type="range" min="1" max="25" step="0.5" value="6" />
+                <input id="boundary-radius-range" type="range" min="1" max="25" step="0.5" value="5" />
               </label>
 
               <fieldset class="mode-switch">
-                <legend>Analysis mode</legend>
+                <legend>Terrain lens</legend>
                 <label>
                   <input type="radio" name="mode" value="band" />
                   <span>Flat zone</span>
@@ -138,13 +138,13 @@ export function setupAppShell(
                 </label>
                 <label>
                   <input type="radio" name="mode" value="ascent" checked />
-                  <span>Total climbing</span>
+                  <span>Climb budget</span>
                 </label>
               </fieldset>
 
               <label class="control" id="upper-control">
                 <div class="control-head">
-                  <span>Max climb up</span>
+                  <span>Max rise above start</span>
                   <output id="upper-output" for="upper-range">15 m</output>
                 </div>
                 <input id="upper-range" type="range" min="0" max="40" step="1" value="15" />
@@ -152,7 +152,7 @@ export function setupAppShell(
 
               <label class="control" id="lower-control">
                 <div class="control-head">
-                  <span>Max drop down</span>
+                  <span>Max drop below start</span>
                   <output id="lower-output" for="lower-range">15 m</output>
                 </div>
                 <input id="lower-range" type="range" min="0" max="80" step="1" value="15" />
@@ -160,27 +160,27 @@ export function setupAppShell(
 
               <label class="control" id="budget-control">
                 <div class="control-head">
-                  <span>Max total climbing</span>
-                  <output id="budget-output" for="budget-range">25 m</output>
+                  <span>Max uphill climbing</span>
+                  <output id="budget-output" for="budget-range">60 m</output>
                 </div>
-                <input id="budget-range" type="range" min="0" max="160" step="5" value="25" />
+                <input id="budget-range" type="range" min="0" max="200" step="5" value="60" />
               </label>
 
               <fieldset class="mode-switch sub-switch" id="ascent-scope-control">
                 <legend>Apply climbing limit to</legend>
                 <label>
-                  <input type="radio" name="ascent-scope" value="one-way" checked />
+                  <input type="radio" name="ascent-scope" value="one-way" />
                   <span>One-way</span>
                 </label>
                 <label>
-                  <input type="radio" name="ascent-scope" value="round-trip" />
+                  <input type="radio" name="ascent-scope" value="round-trip" checked />
                   <span>Round trip</span>
                 </label>
               </fieldset>
             </form>
             
             <p class="note">
-              Terrain-only model. Total climbing uses the least-uphill terrain path, not real streets.
+              Ride presets are low-climb terrain heuristics. No street network or distance penalty yet.
             </p>
           </div>
         </div>

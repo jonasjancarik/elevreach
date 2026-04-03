@@ -42,26 +42,26 @@ export function updateStatsView(
       ? `Areas at ${sourceElevation.toFixed(0)} m + ${state.upperAllowance} m or lower`
       : state.mode === 'ascent'
         ? state.ascentRoundTrip
-          ? `Areas where the round trip on the flattest paths has ≤ ${state.ascentBudget} m total climbing`
-          : `Areas reachable on the flattest path with ≤ ${state.ascentBudget} m total climbing`
+          ? `Areas whose there-and-back least-uphill terrain paths total ≤ ${state.ascentBudget} m uphill climbing`
+          : `Areas whose least-uphill terrain path stays within ≤ ${state.ascentBudget} m uphill climbing`
         : `Areas between ${sourceElevation.toFixed(0)} m - ${state.lowerAllowance} m and + ${state.upperAllowance} m`;
   const scope =
     state.mode === 'ascent'
       ? state.boundaryScope === 'radius'
-        ? `from the start point within a ${formatRadius(state.boundaryRadiusKm)} radius`
+        ? `from the start point within a ${formatRadius(state.boundaryRadiusKm)} straight-line radius`
         : 'from the start point'
       : state.contiguousOnly
         ? state.boundaryScope === 'radius'
-          ? `connected to the start point within a ${formatRadius(state.boundaryRadiusKm)} radius`
+          ? `connected to the start point within a ${formatRadius(state.boundaryRadiusKm)} straight-line radius`
           : 'connected to the start point'
         : state.boundaryScope === 'radius'
-          ? `across the ${formatRadius(state.boundaryRadiusKm)} radius`
+          ? `across the ${formatRadius(state.boundaryRadiusKm)} straight-line radius`
           : `across ${state.cityLabel}`;
   const caveat =
     state.mode === 'ascent'
       ? state.ascentRoundTrip
-        ? 'Terrain path only. Real roads will add more climbing.'
-        : 'Terrain path only. Real roads will add more climbing.'
+        ? 'Terrain only. No street network or distance penalty yet, so long flat detours may still qualify.'
+        : 'Terrain only. No street network or distance penalty yet, so long flat detours may still qualify.'
       : state.mode === 'ceiling'
         ? 'Repeated short hills may add up to a lot of climbing.'
         : '';

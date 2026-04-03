@@ -31,7 +31,7 @@ import {
 } from './lib/theme';
 import { pickDefaultAnchor, setLoadingState, setStatusView, updateStatsView } from './lib/view';
 
-type PresetKey = 'flat-5' | 'flat-15' | 'ceiling-5' | 'ascent-25';
+type PresetKey = 'flat-walk' | 'ride-low' | 'ride-everyday';
 
 interface AppState {
   appearance: AppearancePreference;
@@ -61,7 +61,7 @@ const initialAppearance = getStoredAppearance();
 const state: AppState = {
   appearance: initialAppearance,
   boundaryRadiusKm: Number(nodes.boundaryRadiusRange.value),
-  boundaryScope: 'city',
+  boundaryScope: 'radius',
   boundary: null,
   cityLabel: DEFAULT_CITY_QUERY,
   dataset: null,
@@ -70,7 +70,7 @@ const state: AppState = {
   upperAllowance: Number(nodes.upperRange.value),
   lowerAllowance: Number(nodes.lowerRange.value),
   ascentBudget: Number(nodes.budgetRange.value),
-  ascentRoundTrip: false,
+  ascentRoundTrip: true,
   contiguousOnly: nodes.connectedToggle.checked,
 };
 
@@ -364,7 +364,7 @@ function syncStateFromControls() {
 
   nodes.boundaryRadiusHint.textContent =
     state.boundaryScope === 'radius'
-      ? 'Radius mode follows the selected map point. Click anywhere to move the search area.'
+      ? 'Radius mode uses straight-line distance from the start. Click anywhere to move the trip area.'
       : `City mode searches within the borders of ${state.cityLabel}.`;
   nodes.clickHint.textContent =
     state.boundaryScope === 'radius'
@@ -373,57 +373,53 @@ function syncStateFromControls() {
 
   nodes.lowerHint.textContent =
     state.mode === 'band'
-      ? 'Flat zone limits both how much you can go up and down.'
+      ? 'Flat zone is a same-elevation lens, not a cycling-effort model.'
       : state.mode === 'ceiling'
         ? 'Elevation cap ignores drops entirely, so repeated short climbs may add up.'
-        : 'Drop limit is not used in total climbing mode.';
+        : 'Drop limit is not used in climb budget mode.';
   nodes.budgetHint.textContent =
     state.mode === 'ascent'
       ? state.ascentRoundTrip
-        ? 'Measures the uphill climb to get there and the uphill climb to get back.'
-        : 'Measures total climbing one-way. Flat detours are considered "free".'
-      : 'Used only in total climbing mode.';
+        ? 'Counts uphill meters out and uphill meters back. Distance is still not priced.'
+        : 'Counts uphill meters one-way only. Distance is not priced, so flat detours are effectively free.'
+      : 'Used only in climb budget mode.';
 }
 
 function applyPreset(preset: PresetKey) {
   switch (preset) {
-    case 'flat-5':
+    case 'flat-walk':
       setControls({
+        boundaryScope: 'radius',
+        boundaryRadiusKm: 2.5,
         mode: 'band',
         upper: 5,
         lower: 5,
-        ascentBudget: 25,
-        ascentRoundTrip: false,
+        ascentBudget: 60,
+        ascentRoundTrip: true,
         contiguous: true,
       });
       break;
-    case 'flat-15':
+    case 'ride-low':
       setControls({
-        mode: 'band',
-        upper: 15,
-        lower: 15,
-        ascentBudget: 25,
-        ascentRoundTrip: false,
-        contiguous: true,
-      });
-      break;
-    case 'ceiling-5':
-      setControls({
-        mode: 'ceiling',
-        upper: 5,
-        lower: 5,
-        ascentBudget: 25,
-        ascentRoundTrip: false,
-        contiguous: true,
-      });
-      break;
-    case 'ascent-25':
-      setControls({
+        boundaryScope: 'radius',
+        boundaryRadiusKm: 5,
         mode: 'ascent',
         upper: 5,
         lower: 5,
-        ascentBudget: 25,
-        ascentRoundTrip: false,
+        ascentBudget: 60,
+        ascentRoundTrip: true,
+        contiguous: true,
+      });
+      break;
+    case 'ride-everyday':
+      setControls({
+        boundaryScope: 'radius',
+        boundaryRadiusKm: 8,
+        mode: 'ascent',
+        upper: 5,
+        lower: 5,
+        ascentBudget: 120,
+        ascentRoundTrip: true,
         contiguous: true,
       });
       break;
@@ -433,6 +429,8 @@ function applyPreset(preset: PresetKey) {
 }
 
 function setControls(options: {
+  boundaryScope: 'city' | 'radius';
+  boundaryRadiusKm: number;
   mode: AnalysisMode;
   upper: number;
   lower: number;
@@ -448,6 +446,15 @@ function setControls(options: {
     modeInput.checked = true;
   }
 
+  const boundaryScopeInput = nodes.controls.querySelector<HTMLInputElement>(
+    `input[name="boundary-scope"][value="${options.boundaryScope}"]`,
+  );
+
+  if (boundaryScopeInput) {
+    boundaryScopeInput.checked = true;
+  }
+
+  nodes.boundaryRadiusRange.value = String(options.boundaryRadiusKm);
   nodes.upperRange.value = String(options.upper);
   nodes.lowerRange.value = String(options.lower);
   nodes.budgetRange.value = String(options.ascentBudget);

@@ -9,7 +9,7 @@ Default city: Prague. Search another city, then click any point and highlight:
 - or cells reachable within a cumulative uphill budget on the least-ascent terrain path
 - with cumulative ascent available as either one-way or back-and-forth budget
 
-Use case: show that many trips in a city are topographically easier than the city's reputation suggests.
+Use case: show that many trips in a city are lower-climb than the city's reputation suggests, without overselling that as a guaranteed easy ride.
 
 ## Run
 
@@ -35,6 +35,15 @@ npm run build
   - an elevation ceiling mask with limited allowed rise and unlimited drop
   - or the least-ascent terrain reach under a cumulative climb budget, either one-way or round-trip
 - Optional connectivity filter keeps only the contiguous region touching the anchor for non-path modes
+- Ride presets pair climb budgets with a trip radius so the cycling story is less detached from distance
+
+## Cycling interpretation
+
+- Best current cycling lens: cumulative climb budget, especially round-trip
+- Safer product language: `low-climb`, `topographic ease`, `terrain-only`
+- Unsafe product language: `easy ride`, `effortless`, `casual for everyone`
+- Why: current mode prices uphill only; distance, street geometry, and sharp ramps are not modeled yet
+- Short product note: [docs/low-climb-cycling.md](docs/low-climb-cycling.md)
 
 ## Limits
 
@@ -42,11 +51,12 @@ npm run build
 - DEM sampling is coarse enough for city-scale storytelling, not engineering use
 - ceiling mode is an elevation lens, not a promise of an easy ride
 - cumulative ascent mode uses terrain-grid paths, so flat detours are still cheaper than they would be on real streets
+- cumulative ascent mode does not price route distance yet, so a long flat detour can still look cheap
 - round-trip ascent mode adds best uphill cost there and best uphill cost back; those terrain paths may differ
 
 ## Next useful step
 
-Snap the cumulative-ascent mode onto a real street / bike graph, then price edges by uphill meters plus route penalties.
+Snap the cumulative-ascent mode onto a real street / bike graph, then price edges by distance, uphill meters, and steepness penalties.
 
 ## GitHub Pages
 
