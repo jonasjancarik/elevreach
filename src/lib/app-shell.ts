@@ -72,7 +72,12 @@ export function setupAppShell(
                 aria-expanded="true"
                 aria-controls="top-card-body"
               >
-                Collapse
+                <span class="panel-toggle-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M6.5 9.5 12 15l5.5-5.5"></path>
+                  </svg>
+                </span>
+                <span class="panel-toggle-label">Collapse</span>
               </button>
               <div class="panel-appearance-picker" aria-label="Appearance">
                 <div class="appearance-buttons">

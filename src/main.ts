@@ -587,10 +587,13 @@ function setAdvancedControlsOpen(open: boolean) {
 
 function setTopCardCollapsed(collapsed: boolean) {
   const shouldCollapse = smallScreenMedia.matches && collapsed;
+  const label = nodes.topCardCollapseButton.querySelector<HTMLElement>('.panel-toggle-label');
 
   topCardCollapsed = shouldCollapse;
   nodes.topCard.classList.toggle('collapsed', shouldCollapse);
   nodes.topCardBody.classList.toggle('hidden', shouldCollapse);
   nodes.topCardCollapseButton.setAttribute('aria-expanded', String(!shouldCollapse));
-  nodes.topCardCollapseButton.textContent = shouldCollapse ? 'Expand' : 'Collapse';
+  if (label) {
+    label.textContent = shouldCollapse ? 'Expand' : 'Collapse';
+  }
 }

@@ -356,6 +356,9 @@ h1 {
 
 .panel-toggle {
   display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: 1px solid var(--appearance-track-border);
   border-radius: 999px;
   min-height: 32px;
@@ -373,6 +376,33 @@ h1 {
 .panel-toggle:focus-visible {
   transform: translateY(-1px);
   background: var(--appearance-hover);
+}
+
+.panel-toggle-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 180ms ease;
+}
+
+.panel-toggle-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.panel-toggle[aria-expanded='true'] .panel-toggle-icon {
+  transform: rotate(180deg);
+}
+
+.panel-toggle-label {
+  line-height: 1;
 }
 
 .appearance-button {
