@@ -223,7 +223,7 @@ button {
   pointer-events: auto;
 }
 
-.custom-controls {
+.controls-shell {
   width: 380px;
   max-width: 100%;
   display: flex;
@@ -231,7 +231,7 @@ button {
   gap: 12px;
 }
 
-.custom-controls.hidden {
+.advanced-controls.hidden {
   display: none;
 }
 
@@ -295,12 +295,6 @@ h1 {
 .lede {
   max-width: 32ch;
   font-size: 0.98rem;
-}
-
-.preset-bar {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
 }
 
 .city-form {
@@ -399,31 +393,6 @@ h1 {
   stroke-linejoin: round;
 }
 
-.preset {
-  border: 0;
-  border-radius: 999px;
-  min-height: 38px;
-  padding: 8px 12px;
-  background: var(--surface-strong-soft);
-  color: var(--text-main);
-  text-align: center;
-  transition:
-    transform 160ms ease,
-    background 160ms ease,
-    color 160ms ease;
-}
-
-.preset:hover,
-.preset:focus-visible {
-  transform: translateY(-1px);
-  background: var(--stroke-mid);
-}
-
-.preset.active {
-  background: var(--surface-strong);
-  color: var(--text-inverse);
-}
-
 .controls {
   display: flex;
   flex-direction: column;
@@ -432,6 +401,36 @@ h1 {
   border-radius: 22px;
   background: var(--control-surface);
   border: 1px solid var(--surface-muted-strong);
+}
+
+.primary-controls {
+  gap: 10px;
+}
+
+.advanced-toggle {
+  border: 1px solid var(--surface-muted-strong);
+  border-radius: 16px;
+  min-height: 42px;
+  padding: 0 14px;
+  background: var(--surface-strong-soft);
+  color: var(--text-main);
+  transition:
+    transform 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
+}
+
+.advanced-toggle:hover,
+.advanced-toggle:focus-visible {
+  transform: translateY(-1px);
+  background: var(--surface-muted);
+}
+
+.advanced-toggle.active {
+  background: var(--surface-strong);
+  color: var(--text-inverse);
+  border-color: transparent;
 }
 
 .mode-switch {
@@ -660,7 +659,7 @@ input[type='range'] {
     bottom: 12px;
   }
 
-  .custom-controls {
+  .controls-shell {
     width: 100%;
   }
   

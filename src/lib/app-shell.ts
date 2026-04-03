@@ -2,6 +2,8 @@ import type { AppearancePreference } from './theme';
 
 export interface AppNodes {
   appearanceButtons: HTMLButtonElement[];
+  advancedButton: HTMLButtonElement;
+  advancedControls: HTMLElement;
   boundaryRadiusHint: HTMLElement;
   boundaryRadiusOutput: HTMLOutputElement;
   boundaryRadiusRange: HTMLInputElement;
@@ -14,6 +16,7 @@ export interface AppNodes {
   upperRange: HTMLInputElement;
   lowerRange: HTMLInputElement;
   budgetRange: HTMLInputElement;
+  budgetLabel: HTMLElement;
   upperOutput: HTMLOutputElement;
   lowerOutput: HTMLOutputElement;
   budgetOutput: HTMLOutputElement;
@@ -27,7 +30,6 @@ export interface AppNodes {
   areaStat: HTMLElement;
   coordsStat: HTMLElement;
   ruleSummary: HTMLElement;
-  presetButtons: HTMLButtonElement[];
 }
 
 export function setupAppShell(
@@ -97,15 +99,28 @@ export function setupAppShell(
 
         <!-- Bottom Center -->
         <div class="floating-panel bottom-center">
-          <div class="preset-bar" aria-label="Presets">
-            <button type="button" class="preset" data-preset="flat-walk">🚶 Flat Walk</button>
-            <button type="button" class="preset active" data-preset="ride-low">🚲 Low-Climb Ride</button>
-            <button type="button" class="preset" data-preset="ride-everyday">🚴 Everyday Ride</button>
-            <button type="button" class="preset custom-preset" id="custom-preset-btn">⚙️ Custom</button>
-          </div>
+          <form class="controls-shell" id="controls">
+            <div class="controls primary-controls">
+              <label class="control" id="budget-control">
+                <div class="control-head">
+                  <span id="budget-label">Round-trip uphill limit</span>
+                  <output id="budget-output" for="budget-range">30 m</output>
+                </div>
+                <input id="budget-range" type="range" min="0" max="200" step="5" value="30" />
+              </label>
 
-          <div id="custom-controls" class="custom-controls hidden">
-            <form class="controls" id="controls">
+              <button
+                id="advanced-toggle"
+                class="advanced-toggle"
+                type="button"
+                aria-expanded="false"
+                aria-controls="advanced-controls"
+              >
+                Advanced
+              </button>
+            </div>
+
+            <div id="advanced-controls" class="controls advanced-controls hidden">
               <fieldset class="mode-switch sub-switch boundary-switch">
                 <legend>Search area</legend>
                 <label>
@@ -158,14 +173,6 @@ export function setupAppShell(
                 <input id="lower-range" type="range" min="0" max="80" step="1" value="15" />
               </label>
 
-              <label class="control" id="budget-control">
-                <div class="control-head">
-                  <span>Max uphill climbing</span>
-                  <output id="budget-output" for="budget-range">60 m</output>
-                </div>
-                <input id="budget-range" type="range" min="0" max="200" step="5" value="60" />
-              </label>
-
               <fieldset class="mode-switch sub-switch" id="ascent-scope-control">
                 <legend>Apply climbing limit to</legend>
                 <label>
@@ -177,12 +184,12 @@ export function setupAppShell(
                   <span>Round trip</span>
                 </label>
               </fieldset>
-            </form>
-            
-            <p class="note">
-              Ride presets are low-climb terrain heuristics. No street network or distance penalty yet.
-            </p>
-          </div>
+
+              <p class="note">
+                Default view: round-trip climb budget. Terrain only. No street network or distance penalty yet.
+              </p>
+            </div>
+          </form>
         </div>
 
         <!-- Bottom Left -->
@@ -212,6 +219,8 @@ export function setupAppShell(
     appearanceButtons: Array.from(
       document.querySelectorAll<HTMLButtonElement>('[data-appearance]'),
     ),
+    advancedButton: must<HTMLButtonElement>('#advanced-toggle'),
+    advancedControls: must<HTMLElement>('#advanced-controls'),
     boundaryRadiusHint: must<HTMLElement>('#boundary-radius-hint'),
     boundaryRadiusOutput: must<HTMLOutputElement>('#boundary-radius-output'),
     boundaryRadiusRange: must<HTMLInputElement>('#boundary-radius-range'),
@@ -226,6 +235,7 @@ export function setupAppShell(
     upperRange: must<HTMLInputElement>('#upper-range'),
     lowerRange: must<HTMLInputElement>('#lower-range'),
     budgetRange: must<HTMLInputElement>('#budget-range'),
+    budgetLabel: must<HTMLElement>('#budget-label'),
     upperOutput: must<HTMLOutputElement>('#upper-output'),
     lowerOutput: must<HTMLOutputElement>('#lower-output'),
     budgetOutput: must<HTMLOutputElement>('#budget-output'),
@@ -241,9 +251,6 @@ export function setupAppShell(
     areaStat: must<HTMLElement>('#area-stat'),
     coordsStat: must<HTMLElement>('#coords-stat'),
     ruleSummary: must<HTMLElement>('#rule-summary'),
-    presetButtons: Array.from(
-      document.querySelectorAll<HTMLButtonElement>('[data-preset]'),
-    ),
   };
 }
 

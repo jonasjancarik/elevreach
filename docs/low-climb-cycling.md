@@ -20,13 +20,13 @@ read_when:
   - trip radius
 - Reason: "easy" depends on climb and distance, not climb alone
 
-## Working presets
+## Default surface
 
-- `Low-Climb Ride`: 5 km radius, 60 m round-trip uphill budget
-- `Everyday Ride`: 8 km radius, 120 m round-trip uphill budget
-- `Flat Walk`: same-elevation lens; not a cycling-effort model
+- Main UI: one round-trip uphill budget slider
+- Default hidden assumptions: 5 km straight-line radius; terrain-only least-uphill path
+- Advanced UI: boundary scope, radius, one-way vs round-trip, alternate terrain lenses
 
-These are product heuristics, not hard scientific cutoffs.
+These defaults are product heuristics, not hard scientific cutoffs.
 
 ## Copy guardrails
 

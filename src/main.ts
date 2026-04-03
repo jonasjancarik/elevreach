@@ -31,8 +31,6 @@ import {
 } from './lib/theme';
 import { pickDefaultAnchor, setLoadingState, setStatusView, updateStatsView } from './lib/view';
 
-type PresetKey = 'flat-walk' | 'ride-low' | 'ride-everyday';
-
 interface AppState {
   appearance: AppearancePreference;
   boundaryRadiusKm: number;
@@ -93,6 +91,7 @@ let sourceMarker: L.CircleMarker | null = null;
 let overlayLayer: L.ImageOverlay | null = null;
 let renderScheduled = false;
 let activeLoadId = 0;
+let advancedControlsOpen = false;
 
 bootstrap().catch((error) => {
   console.error(error);
@@ -105,13 +104,11 @@ bootstrap().catch((error) => {
 
 nodes.controls.addEventListener('input', () => {
   syncStateFromControls();
-  updatePresetState(null);
   scheduleRender();
 });
 
 nodes.controls.addEventListener('change', () => {
   syncStateFromControls();
-  updatePresetState(null);
   scheduleRender();
 });
 
@@ -157,21 +154,8 @@ nodes.searchForm.addEventListener('submit', (event) => {
   void loadCity(query, false);
 });
 
-nodes.presetButtons.forEach((button) => {
-  button.addEventListener('click', () => {
-    applyPreset(button.dataset.preset as PresetKey);
-    document.querySelector('#custom-controls')?.classList.add('hidden');
-    document.querySelector('#custom-preset-btn')?.classList.remove('active');
-    scheduleRender();
-  });
-});
-
-const customPresetBtn = document.querySelector('#custom-preset-btn');
-customPresetBtn?.addEventListener('click', () => {
-  const controls = document.querySelector('#custom-controls');
-  controls?.classList.toggle('hidden');
-  customPresetBtn.classList.toggle('active', !controls?.classList.contains('hidden'));
-  updatePresetState(null);
+nodes.advancedButton.addEventListener('click', () => {
+  setAdvancedControlsOpen(!advancedControlsOpen);
 });
 
 map.on('click', (event: LeafletMouseEvent) => {
@@ -343,18 +327,23 @@ function syncStateFromControls() {
     state.mode === 'band' ? `${state.lowerAllowance} m` : '∞ drop';
   nodes.boundaryRadiusOutput.textContent = formatBoundaryRadius(state.boundaryRadiusKm);
   nodes.budgetOutput.textContent = `${state.ascentBudget} m`;
+  nodes.budgetLabel.textContent =
+    state.mode !== 'ascent'
+      ? 'Climb budget'
+      : state.ascentRoundTrip
+        ? 'Round-trip uphill limit'
+        : 'One-way uphill limit';
+  nodes.budgetRange.disabled = state.mode !== 'ascent';
 
   const boundaryRadiusControl = nodes.boundaryRadiusRange.closest<HTMLElement>('.control');
   const upperControl = nodes.upperRange.closest<HTMLElement>('.control');
   const lowerControl = nodes.lowerRange.closest<HTMLElement>('.control');
-  const budgetControl = nodes.budgetRange.closest<HTMLElement>('.control');
   const ascentScopeControl = nodes.ascentScopeInputs[0]?.closest<HTMLElement>('fieldset');
   const connectedControl = nodes.connectedToggle.closest<HTMLElement>('.toggle');
 
   setControlDisplay(boundaryRadiusControl, state.boundaryScope === 'radius');
   setControlDisplay(upperControl, state.mode !== 'ascent');
   setControlDisplay(lowerControl, state.mode === 'band');
-  setControlDisplay(budgetControl, state.mode === 'ascent');
   setControlDisplay(ascentScopeControl, state.mode === 'ascent');
   setControlDisplay(connectedControl, state.mode !== 'ascent');
 
@@ -383,98 +372,6 @@ function syncStateFromControls() {
         ? 'Counts uphill meters out and uphill meters back. Distance is still not priced.'
         : 'Counts uphill meters one-way only. Distance is not priced, so flat detours are effectively free.'
       : 'Used only in climb budget mode.';
-}
-
-function applyPreset(preset: PresetKey) {
-  switch (preset) {
-    case 'flat-walk':
-      setControls({
-        boundaryScope: 'radius',
-        boundaryRadiusKm: 2.5,
-        mode: 'band',
-        upper: 5,
-        lower: 5,
-        ascentBudget: 60,
-        ascentRoundTrip: true,
-        contiguous: true,
-      });
-      break;
-    case 'ride-low':
-      setControls({
-        boundaryScope: 'radius',
-        boundaryRadiusKm: 5,
-        mode: 'ascent',
-        upper: 5,
-        lower: 5,
-        ascentBudget: 60,
-        ascentRoundTrip: true,
-        contiguous: true,
-      });
-      break;
-    case 'ride-everyday':
-      setControls({
-        boundaryScope: 'radius',
-        boundaryRadiusKm: 8,
-        mode: 'ascent',
-        upper: 5,
-        lower: 5,
-        ascentBudget: 120,
-        ascentRoundTrip: true,
-        contiguous: true,
-      });
-      break;
-  }
-
-  updatePresetState(preset);
-}
-
-function setControls(options: {
-  boundaryScope: 'city' | 'radius';
-  boundaryRadiusKm: number;
-  mode: AnalysisMode;
-  upper: number;
-  lower: number;
-  ascentBudget: number;
-  ascentRoundTrip: boolean;
-  contiguous: boolean;
-}) {
-  const modeInput = nodes.controls.querySelector<HTMLInputElement>(
-    `input[name="mode"][value="${options.mode}"]`,
-  );
-
-  if (modeInput) {
-    modeInput.checked = true;
-  }
-
-  const boundaryScopeInput = nodes.controls.querySelector<HTMLInputElement>(
-    `input[name="boundary-scope"][value="${options.boundaryScope}"]`,
-  );
-
-  if (boundaryScopeInput) {
-    boundaryScopeInput.checked = true;
-  }
-
-  nodes.boundaryRadiusRange.value = String(options.boundaryRadiusKm);
-  nodes.upperRange.value = String(options.upper);
-  nodes.lowerRange.value = String(options.lower);
-  nodes.budgetRange.value = String(options.ascentBudget);
-
-  const ascentScopeInput = nodes.controls.querySelector<HTMLInputElement>(
-    `input[name="ascent-scope"][value="${options.ascentRoundTrip ? 'round-trip' : 'one-way'}"]`,
-  );
-
-  if (ascentScopeInput) {
-    ascentScopeInput.checked = true;
-  }
-
-  nodes.connectedToggle.checked = options.contiguous;
-  syncStateFromControls();
-}
-
-function updatePresetState(active: PresetKey | null) {
-  nodes.presetButtons.forEach((button) => {
-    button.classList.toggle('active', button.dataset.preset === active);
-  });
 }
 
 function updateAppearanceState() {
@@ -663,4 +560,12 @@ function setControlDisplay(node: HTMLElement | null | undefined, visible: boolea
   }
 
   node.style.display = visible ? '' : 'none';
+}
+
+function setAdvancedControlsOpen(open: boolean) {
+  advancedControlsOpen = open;
+  nodes.advancedControls.classList.toggle('hidden', !open);
+  nodes.advancedButton.classList.toggle('active', open);
+  nodes.advancedButton.setAttribute('aria-expanded', String(open));
+  nodes.advancedButton.textContent = open ? 'Hide advanced' : 'Advanced';
 }
