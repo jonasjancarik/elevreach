@@ -11,7 +11,6 @@ export interface AppNodes {
   searchForm: HTMLFormElement;
   searchInput: HTMLInputElement;
   searchButton: HTMLButtonElement;
-  cityLabel: HTMLElement;
   upperRange: HTMLInputElement;
   lowerRange: HTMLInputElement;
   budgetRange: HTMLInputElement;
@@ -79,13 +78,8 @@ export function setupAppShell(
               autocomplete="off"
             />
           </label>
-          <button id="city-submit" class="city-submit" type="submit">Load city</button>
+          <button id="city-submit" class="city-submit" type="submit">Search</button>
         </form>
-
-        <div class="city-meta">
-          <span class="city-meta-label">Current city</span>
-          <strong id="city-label" class="city-label">${defaultCityQuery}</strong>
-        </div>
 
         <div class="preset-bar" aria-label="Presets">
           <button type="button" class="preset" data-preset="flat-5">Flat ±5 m</button>
@@ -107,7 +101,7 @@ export function setupAppShell(
             </label>
           </fieldset>
 
-          <label class="control">
+          <label class="control" id="boundary-radius-control">
             <div class="control-head">
               <span>Search distance</span>
               <output id="boundary-radius-output" for="boundary-radius-range">6 km</output>
@@ -132,7 +126,7 @@ export function setupAppShell(
             </label>
           </fieldset>
 
-          <label class="control">
+          <label class="control" id="upper-control">
             <div class="control-head">
               <span>Max climb up</span>
               <output id="upper-output" for="upper-range">15 m</output>
@@ -140,7 +134,7 @@ export function setupAppShell(
             <input id="upper-range" type="range" min="0" max="40" step="1" value="15" />
           </label>
 
-          <label class="control">
+          <label class="control" id="lower-control">
             <div class="control-head">
               <span>Max drop down</span>
               <output id="lower-output" for="lower-range">15 m</output>
@@ -149,7 +143,7 @@ export function setupAppShell(
             <small id="lower-hint">Used only in flat zone mode.</small>
           </label>
 
-          <label class="control">
+          <label class="control" id="budget-control">
             <div class="control-head">
               <span>Max total climbing</span>
               <output id="budget-output" for="budget-range">25 m</output>
@@ -158,7 +152,7 @@ export function setupAppShell(
             <small id="budget-hint">Used only in total climbing mode.</small>
           </label>
 
-          <fieldset class="mode-switch sub-switch">
+          <fieldset class="mode-switch sub-switch" id="ascent-scope-control">
             <legend>Apply climbing limit to</legend>
             <label>
               <input type="radio" name="ascent-scope" value="one-way" checked />
@@ -170,7 +164,7 @@ export function setupAppShell(
             </label>
           </fieldset>
 
-          <label class="toggle">
+          <label class="toggle" id="connected-control">
             <input id="connected-toggle" type="checkbox" checked />
             <span>Show only directly reachable areas (no jumps)</span>
           </label>
@@ -233,7 +227,6 @@ export function setupAppShell(
     searchForm: must<HTMLFormElement>('#city-form'),
     searchInput: must<HTMLInputElement>('#city-query'),
     searchButton: must<HTMLButtonElement>('#city-submit'),
-    cityLabel: must<HTMLElement>('#city-label'),
     upperRange: must<HTMLInputElement>('#upper-range'),
     lowerRange: must<HTMLInputElement>('#lower-range'),
     budgetRange: must<HTMLInputElement>('#budget-range'),

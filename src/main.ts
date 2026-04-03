@@ -217,7 +217,6 @@ async function loadCity(query: string, useBundled: boolean) {
 
     state.boundary = loadedBoundary.boundary;
     state.cityLabel = loadedBoundary.label;
-    nodes.cityLabel.textContent = loadedBoundary.label;
     document.title = `ElevReach: ${loadedBoundary.label}`;
     renderBoundary(loadedBoundary.boundary);
 
@@ -335,14 +334,19 @@ function syncStateFromControls() {
   nodes.boundaryRadiusOutput.textContent = formatBoundaryRadius(state.boundaryRadiusKm);
   nodes.budgetOutput.textContent = `${state.ascentBudget} m`;
 
-  nodes.boundaryRadiusRange.disabled = state.boundaryScope !== 'radius';
-  nodes.upperRange.disabled = state.mode === 'ascent';
-  nodes.lowerRange.disabled = state.mode !== 'band';
-  nodes.budgetRange.disabled = state.mode !== 'ascent';
-  nodes.connectedToggle.disabled = state.mode === 'ascent';
-  nodes.ascentScopeInputs.forEach((input) => {
-    input.disabled = state.mode !== 'ascent';
-  });
+  const boundaryRadiusControl = nodes.boundaryRadiusRange.closest('.control') as HTMLElement;
+  const upperControl = nodes.upperRange.closest('.control') as HTMLElement;
+  const lowerControl = nodes.lowerRange.closest('.control') as HTMLElement;
+  const budgetControl = nodes.budgetRange.closest('.control') as HTMLElement;
+  const ascentScopeControl = nodes.ascentScopeInputs[0].closest('fieldset') as HTMLElement;
+  const connectedControl = nodes.connectedToggle.closest('.toggle') as HTMLElement;
+
+  boundaryRadiusControl.style.display = state.boundaryScope === 'radius' ? '' : 'none';
+  upperControl.style.display = state.mode === 'ascent' ? 'none' : '';
+  lowerControl.style.display = state.mode === 'band' ? '' : 'none';
+  budgetControl.style.display = state.mode === 'ascent' ? '' : 'none';
+  ascentScopeControl.style.display = state.mode === 'ascent' ? '' : 'none';
+  connectedControl.style.display = state.mode === 'ascent' ? 'none' : '';
 
   if (state.mode === 'ascent') {
     nodes.connectedToggle.checked = true;
