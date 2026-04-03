@@ -344,19 +344,19 @@ function syncStateFromControls() {
   nodes.boundaryRadiusOutput.textContent = formatBoundaryRadius(state.boundaryRadiusKm);
   nodes.budgetOutput.textContent = `${state.ascentBudget} m`;
 
-  const boundaryRadiusControl = nodes.boundaryRadiusRange.closest('.control') as HTMLElement;
-  const upperControl = nodes.upperRange.closest('.control') as HTMLElement;
-  const lowerControl = nodes.lowerRange.closest('.control') as HTMLElement;
-  const budgetControl = nodes.budgetRange.closest('.control') as HTMLElement;
-  const ascentScopeControl = nodes.ascentScopeInputs[0].closest('fieldset') as HTMLElement;
-  const connectedControl = nodes.connectedToggle.closest('.toggle') as HTMLElement;
+  const boundaryRadiusControl = nodes.boundaryRadiusRange.closest<HTMLElement>('.control');
+  const upperControl = nodes.upperRange.closest<HTMLElement>('.control');
+  const lowerControl = nodes.lowerRange.closest<HTMLElement>('.control');
+  const budgetControl = nodes.budgetRange.closest<HTMLElement>('.control');
+  const ascentScopeControl = nodes.ascentScopeInputs[0]?.closest<HTMLElement>('fieldset');
+  const connectedControl = nodes.connectedToggle.closest<HTMLElement>('.toggle');
 
-  boundaryRadiusControl.style.display = state.boundaryScope === 'radius' ? '' : 'none';
-  upperControl.style.display = state.mode === 'ascent' ? 'none' : '';
-  lowerControl.style.display = state.mode === 'band' ? '' : 'none';
-  budgetControl.style.display = state.mode === 'ascent' ? '' : 'none';
-  ascentScopeControl.style.display = state.mode === 'ascent' ? '' : 'none';
-  connectedControl.style.display = state.mode === 'ascent' ? 'none' : '';
+  setControlDisplay(boundaryRadiusControl, state.boundaryScope === 'radius');
+  setControlDisplay(upperControl, state.mode !== 'ascent');
+  setControlDisplay(lowerControl, state.mode === 'band');
+  setControlDisplay(budgetControl, state.mode === 'ascent');
+  setControlDisplay(ascentScopeControl, state.mode === 'ascent');
+  setControlDisplay(connectedControl, state.mode !== 'ascent');
 
   if (state.mode === 'ascent') {
     nodes.connectedToggle.checked = true;
@@ -648,4 +648,12 @@ function parseBoundaryScope() {
 
 function formatBoundaryRadius(radiusKm: number) {
   return Number.isInteger(radiusKm) ? `${radiusKm} km` : `${radiusKm.toFixed(1)} km`;
+}
+
+function setControlDisplay(node: HTMLElement | null | undefined, visible: boolean) {
+  if (!node) {
+    return;
+  }
+
+  node.style.display = visible ? '' : 'none';
 }
