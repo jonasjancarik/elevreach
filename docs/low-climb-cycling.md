@@ -22,7 +22,7 @@ read_when:
 
 ## Default surface
 
-- Main UI: one round-trip uphill budget slider
+- Main UI: trip radius slider plus round-trip uphill budget slider
 - Default hidden assumptions: 5 km straight-line radius; terrain-only least-uphill path
 - Advanced UI: boundary scope, radius, one-way vs round-trip, alternate terrain lenses
 

@@ -101,6 +101,14 @@ export function setupAppShell(
         <div class="floating-panel bottom-center">
           <form class="controls-shell" id="controls">
             <div class="controls primary-controls">
+              <label class="control" id="boundary-radius-control">
+                <div class="control-head">
+                  <span>Trip radius</span>
+                  <output id="boundary-radius-output" for="boundary-radius-range">5 km</output>
+                </div>
+                <input id="boundary-radius-range" type="range" min="1" max="25" step="0.5" value="5" />
+              </label>
+
               <label class="control" id="budget-control">
                 <div class="control-head">
                   <span id="budget-label">Round-trip uphill limit</span>
@@ -132,14 +140,6 @@ export function setupAppShell(
                   <span>Radius</span>
                 </label>
               </fieldset>
-
-              <label class="control" id="boundary-radius-control">
-                <div class="control-head">
-                  <span>Trip radius</span>
-                  <output id="boundary-radius-output" for="boundary-radius-range">5 km</output>
-                </div>
-                <input id="boundary-radius-range" type="range" min="1" max="25" step="0.5" value="5" />
-              </label>
 
               <fieldset class="mode-switch">
                 <legend>Terrain lens</legend>
@@ -186,7 +186,7 @@ export function setupAppShell(
               </fieldset>
 
               <p class="note">
-                Default view: round-trip climb budget. Terrain only. No street network or distance penalty yet.
+                Default view: trip radius plus round-trip climb budget. Terrain only. No street network or distance penalty yet.
               </p>
             </div>
           </form>

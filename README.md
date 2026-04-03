@@ -35,7 +35,7 @@ npm run build
   - an elevation ceiling mask with limited allowed rise and unlimited drop
   - or the least-ascent terrain reach under a cumulative climb budget, either one-way or round-trip
 - Optional connectivity filter keeps only the contiguous region touching the anchor for non-path modes
-- Default UI focuses on a round-trip climb budget slider; advanced controls reveal search area and alternate terrain lenses
+- Default UI shows trip radius plus round-trip climb budget; advanced controls reveal search area and alternate terrain lenses
 
 ## Cycling interpretation
 
