@@ -83,9 +83,9 @@ export function setupAppShell(
 
         <div class="preset-bar" aria-label="Presets">
           <button type="button" class="preset" data-preset="flat-5">Flat ±5 m</button>
-          <button type="button" class="preset active" data-preset="flat-15">Flat ±15 m</button>
+          <button type="button" class="preset" data-preset="flat-15">Flat ±15 m</button>
           <button type="button" class="preset" data-preset="ceiling-5">Max +5 m</button>
-          <button type="button" class="preset" data-preset="ascent-25">Climb ≤25 m</button>
+          <button type="button" class="preset active" data-preset="ascent-25">Climb ≤25 m</button>
         </div>
 
         <form class="controls" id="controls">
