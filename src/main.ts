@@ -92,6 +92,8 @@ let overlayLayer: L.ImageOverlay | null = null;
 let renderScheduled = false;
 let activeLoadId = 0;
 let advancedControlsOpen = false;
+let topCardCollapsed = false;
+const smallScreenMedia = window.matchMedia('(max-width: 768px)');
 
 bootstrap().catch((error) => {
   console.error(error);
@@ -158,6 +160,18 @@ nodes.advancedButton.addEventListener('click', () => {
   setAdvancedControlsOpen(!advancedControlsOpen);
 });
 
+nodes.topCardCollapseButton.addEventListener('click', () => {
+  if (!smallScreenMedia.matches) {
+    return;
+  }
+
+  setTopCardCollapsed(!topCardCollapsed);
+});
+
+smallScreenMedia.addEventListener('change', (event) => {
+  setTopCardCollapsed(event.matches ? topCardCollapsed : false);
+});
+
 map.on('click', (event: LeafletMouseEvent) => {
   if (!state.dataset) {
     return;
@@ -190,6 +204,7 @@ map.on('click', (event: LeafletMouseEvent) => {
 
 async function bootstrap() {
   syncStateFromControls();
+  setTopCardCollapsed(false);
   applyAppearance();
   await loadCity(DEFAULT_CITY_QUERY, true);
 }
@@ -568,4 +583,14 @@ function setAdvancedControlsOpen(open: boolean) {
   nodes.advancedButton.classList.toggle('active', open);
   nodes.advancedButton.setAttribute('aria-expanded', String(open));
   nodes.advancedButton.textContent = open ? 'Hide advanced' : 'Advanced';
+}
+
+function setTopCardCollapsed(collapsed: boolean) {
+  const shouldCollapse = smallScreenMedia.matches && collapsed;
+
+  topCardCollapsed = shouldCollapse;
+  nodes.topCard.classList.toggle('collapsed', shouldCollapse);
+  nodes.topCardBody.classList.toggle('hidden', shouldCollapse);
+  nodes.topCardCollapseButton.setAttribute('aria-expanded', String(!shouldCollapse));
+  nodes.topCardCollapseButton.textContent = shouldCollapse ? 'Expand' : 'Collapse';
 }

@@ -186,9 +186,6 @@ button {
   left: 16px;
   width: 380px;
   max-width: calc(100vw - 32px);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
 }
 
 .bottom-center {
@@ -249,6 +246,23 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.panel-body.hidden {
+  display: none;
 }
 
 .panel-appearance-picker {
@@ -338,6 +352,27 @@ h1 {
   display: flex;
   flex-wrap: nowrap;
   gap: 4px;
+}
+
+.panel-toggle {
+  display: none;
+  border: 1px solid var(--appearance-track-border);
+  border-radius: 999px;
+  min-height: 32px;
+  padding: 0 12px;
+  background: var(--appearance-track);
+  color: var(--text-main);
+  transition:
+    transform 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
+}
+
+.panel-toggle:hover,
+.panel-toggle:focus-visible {
+  transform: translateY(-1px);
+  background: var(--appearance-hover);
 }
 
 .appearance-button {
@@ -654,6 +689,10 @@ input[type='range'] {
     width: calc(100vw - 24px);
   }
 
+  .top-left.collapsed {
+    padding-bottom: 16px;
+  }
+
   .bottom-center {
     width: calc(100vw - 24px);
     bottom: 12px;
@@ -661,6 +700,12 @@ input[type='range'] {
 
   .controls-shell {
     width: 100%;
+  }
+
+  .panel-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   
   .bottom-left {

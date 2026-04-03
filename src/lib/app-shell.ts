@@ -13,6 +13,9 @@ export interface AppNodes {
   searchForm: HTMLFormElement;
   searchInput: HTMLInputElement;
   searchButton: HTMLButtonElement;
+  topCard: HTMLElement;
+  topCardBody: HTMLElement;
+  topCardCollapseButton: HTMLButtonElement;
   upperRange: HTMLInputElement;
   lowerRange: HTMLInputElement;
   budgetRange: HTMLInputElement;
@@ -58,43 +61,56 @@ export function setupAppShell(
       
       <div class="map-overlay">
         <!-- Top Left -->
-        <div class="floating-panel top-left">
+        <div class="floating-panel top-left" id="top-card">
           <div class="panel-top">
             <p class="eyebrow">ElevReach</p>
-            <div class="panel-appearance-picker" aria-label="Appearance">
-              <div class="appearance-buttons">
-                ${appearanceButtonsMarkup}
+            <div class="panel-actions">
+              <button
+                id="top-card-toggle"
+                class="panel-toggle"
+                type="button"
+                aria-expanded="true"
+                aria-controls="top-card-body"
+              >
+                Collapse
+              </button>
+              <div class="panel-appearance-picker" aria-label="Appearance">
+                <div class="appearance-buttons">
+                  ${appearanceButtonsMarkup}
+                </div>
               </div>
             </div>
           </div>
 
-          <form class="city-form" id="city-form">
-            <label class="city-search" for="city-query">
-              <span class="sr-only">City search</span>
-              <input
-                id="city-query"
-                name="city-query"
-                type="search"
-                value="${defaultCityQuery}"
-                placeholder="Try Lisbon, Portugal"
-                autocomplete="off"
-              />
-            </label>
-            <button id="city-submit" class="city-submit" type="submit">Search</button>
-          </form>
+          <div class="panel-body" id="top-card-body">
+            <form class="city-form" id="city-form">
+              <label class="city-search" for="city-query">
+                <span class="sr-only">City search</span>
+                <input
+                  id="city-query"
+                  name="city-query"
+                  type="search"
+                  value="${defaultCityQuery}"
+                  placeholder="Try Lisbon, Portugal"
+                  autocomplete="off"
+                />
+              </label>
+              <button id="city-submit" class="city-submit" type="submit">Search</button>
+            </form>
 
-          <div class="stats">
-            <article>
-              <span class="stat-label">Reachable area</span>
-              <strong id="area-stat">…</strong>
-            </article>
-            <article>
-              <span class="stat-label">Start elevation</span>
-              <strong id="elevation-stat">…</strong>
-            </article>
+            <div class="stats">
+              <article>
+                <span class="stat-label">Reachable area</span>
+                <strong id="area-stat">…</strong>
+              </article>
+              <article>
+                <span class="stat-label">Start elevation</span>
+                <strong id="elevation-stat">…</strong>
+              </article>
+            </div>
+
+            <p id="rule-summary" class="rule-summary">Loading terrain…</p>
           </div>
-
-          <p id="rule-summary" class="rule-summary">Loading terrain…</p>
         </div>
 
         <!-- Bottom Center -->
@@ -232,6 +248,9 @@ export function setupAppShell(
     searchForm: must<HTMLFormElement>('#city-form'),
     searchInput: must<HTMLInputElement>('#city-query'),
     searchButton: must<HTMLButtonElement>('#city-submit'),
+    topCard: must<HTMLElement>('#top-card'),
+    topCardBody: must<HTMLElement>('#top-card-body'),
+    topCardCollapseButton: must<HTMLButtonElement>('#top-card-toggle'),
     upperRange: must<HTMLInputElement>('#upper-range'),
     lowerRange: must<HTMLInputElement>('#lower-range'),
     budgetRange: must<HTMLInputElement>('#budget-range'),
