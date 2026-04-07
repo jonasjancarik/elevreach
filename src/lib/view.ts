@@ -33,6 +33,7 @@ export function updateStatsView(
 ) {
   const sourcePoint = cellLatLng(dataset, sourceIndex);
   const sourceElevation = elevationAtIndex(dataset, sourceIndex);
+  const isPragueCity = isPrague(state.cityLabel, state.cityLabel);
   const share =
     analysis.insideAreaKm2 === 0
       ? 0
@@ -54,6 +55,16 @@ export function updateStatsView(
       : population
         ? `Prague-only estimate. Source: ${population.dataset.sourceName}. ${population.dataset.method}`
         : 'Population estimate unavailable for this city or boundary.';
+  nodes.compactAreaStat.textContent = `Reach ${analysis.matchedAreaKm2.toFixed(1)} km²`;
+  nodes.compactPopulationStat.hidden = !isPragueCity;
+  if (isPragueCity) {
+    nodes.compactPopulationStat.textContent =
+      populationStatus === 'loading'
+        ? 'Res …'
+        : population
+          ? `Res ≈${formatCompactPopulation(population.summary.matchedPopulation)}`
+          : 'Res —';
+  }
 
   const baseRule =
     state.mode === 'ceiling'
@@ -134,5 +145,12 @@ function formatRadius(radiusKm: number) {
 function formatPopulation(population: number) {
   return new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 0,
+  }).format(Math.round(population));
+}
+
+function formatCompactPopulation(population: number) {
+  return new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: population >= 1_000_000 ? 1 : 0,
   }).format(Math.round(population));
 }

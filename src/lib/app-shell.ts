@@ -9,6 +9,8 @@ export interface AppNodes {
   boundaryRadiusRange: HTMLInputElement;
   boundaryScopeInputs: HTMLInputElement[];
   clickHint: HTMLElement;
+  compactAreaStat: HTMLElement;
+  compactPopulationStat: HTMLElement;
   controls: HTMLFormElement;
   searchForm: HTMLFormElement;
   searchInput: HTMLInputElement;
@@ -124,6 +126,11 @@ export function setupAppShell(
             <p id="population-note" class="sources">
               Population estimate unavailable.
             </p>
+          </div>
+
+          <div class="panel-compact-summary" id="top-card-compact-summary" aria-live="polite">
+            <span id="compact-area-stat" class="compact-summary-item">Reach …</span>
+            <span id="compact-population-stat" class="compact-summary-item">Res —</span>
           </div>
         </div>
 
@@ -258,6 +265,8 @@ export function setupAppShell(
       document.querySelectorAll<HTMLInputElement>('input[name="boundary-scope"]'),
     ),
     clickHint: must<HTMLElement>('#click-hint'),
+    compactAreaStat: must<HTMLElement>('#compact-area-stat'),
+    compactPopulationStat: must<HTMLElement>('#compact-population-stat'),
     controls: must<HTMLFormElement>('#controls'),
     searchForm: must<HTMLFormElement>('#city-form'),
     searchInput: must<HTMLInputElement>('#city-query'),

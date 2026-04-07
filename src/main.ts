@@ -99,8 +99,8 @@ let overlayLayer: L.ImageOverlay | null = null;
 let renderScheduled = false;
 let activeLoadId = 0;
 let advancedControlsOpen = false;
-let topCardCollapsed = false;
 const smallScreenMedia = window.matchMedia('(max-width: 768px)');
+let topCardCollapsed = smallScreenMedia.matches;
 
 bootstrap().catch((error) => {
   console.error(error);
@@ -176,7 +176,7 @@ nodes.topCardCollapseButton.addEventListener('click', () => {
 });
 
 smallScreenMedia.addEventListener('change', (event) => {
-  setTopCardCollapsed(event.matches ? topCardCollapsed : false);
+  setTopCardCollapsed(event.matches);
 });
 
 map.on('click', (event: LeafletMouseEvent) => {
@@ -211,7 +211,7 @@ map.on('click', (event: LeafletMouseEvent) => {
 
 async function bootstrap() {
   syncStateFromControls();
-  setTopCardCollapsed(false);
+  setTopCardCollapsed(smallScreenMedia.matches);
   applyAppearance();
   await loadCity(DEFAULT_CITY_QUERY, true);
 }
