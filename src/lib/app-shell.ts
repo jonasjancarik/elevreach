@@ -220,9 +220,9 @@ export function setupAppShell(
               <label class="control" id="budget-control">
                 <div class="control-head">
                   <span id="budget-label">Round-trip uphill limit</span>
-                  <output id="budget-output" for="budget-range">40 m</output>
+                  <output id="budget-output" for="budget-range">30 m</output>
                 </div>
-                <input id="budget-range" type="range" min="0" max="200" step="5" value="40" />
+                <input id="budget-range" type="range" min="0" max="200" step="5" value="30" />
               </label>
 
               <button
