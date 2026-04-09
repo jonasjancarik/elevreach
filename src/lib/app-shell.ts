@@ -165,6 +165,10 @@ export function setupAppShell(
                 <strong id="area-stat">…</strong>
               </article>
               <article>
+                <span class="stat-label" data-i18n="shareOfLimitAreaLabel">${copy.staticText.shareOfLimitAreaLabel}</span>
+                <strong id="share-stat">…</strong>
+              </article>
+              <article>
                 <span class="stat-label" data-i18n="startElevationLabel">${copy.staticText.startElevationLabel}</span>
                 <strong id="elevation-stat">…</strong>
               </article>
@@ -323,7 +327,6 @@ export function setupAppShell(
       
       <!-- hidden stats so TS doesn't complain for now -->
       <div style="display: none;">
-        <span id="share-stat"></span>
         <span id="coords-stat"></span>
         <input id="connected-toggle" type="checkbox" checked />
         <span id="boundary-radius-hint"></span>

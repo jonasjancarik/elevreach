@@ -31,6 +31,7 @@ interface StaticTextCatalog {
   searchAreaLegend: string;
   searchAreaRadius: string;
   searchButton: string;
+  shareOfLimitAreaLabel: string;
   startElevationLabel: string;
   terrainLensAscent: string;
   terrainLensBand: string;
@@ -152,6 +153,7 @@ const ENGLISH_MESSAGES: CopyCatalog = {
     searchAreaLegend: "Search area",
     searchAreaRadius: "Radius",
     searchButton: "Search",
+    shareOfLimitAreaLabel: "Share of limit area",
     startElevationLabel: "Start elevation",
     terrainLensAscent: "Climb budget",
     terrainLensBand: "Flat zone",
@@ -299,6 +301,7 @@ const CZECH_MESSAGES: CopyCatalog = {
     searchAreaLegend: "Oblast hledání",
     searchAreaRadius: "Poloměr",
     searchButton: "Hledat",
+    shareOfLimitAreaLabel: "Podíl limitní oblasti",
     startElevationLabel: "Výchozí nadmořská výška",
     terrainLensAscent: "Rozpočet stoupání",
     terrainLensBand: "Rovinné pásmo",
