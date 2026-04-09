@@ -131,10 +131,31 @@ export function indexFromLatLng(
   lng: number,
   lat: number,
 ) {
+  const directIndex = indexFromLatLngExact(dataset, lng, lat);
+
+  if (directIndex === null) {
+    return null;
+  }
+
+  const row = Math.floor(directIndex / dataset.cols);
+  const col = directIndex - row * dataset.cols;
+
+  return findNearestInsideIndex(dataset, col, row);
+}
+
+export function indexFromLatLngExact(
+  dataset: TerrainDataset,
+  lng: number,
+  lat: number,
+) {
   const col = Math.round((lonToWorldX(lng, dataset.zoom) - dataset.xMin) / dataset.sampleStep);
   const row = Math.round((latToWorldY(lat, dataset.zoom) - dataset.yMin) / dataset.sampleStep);
 
-  return findNearestInsideIndex(dataset, col, row);
+  if (col < 0 || col >= dataset.cols || row < 0 || row >= dataset.rows) {
+    return null;
+  }
+
+  return index(dataset.cols, col, row);
 }
 
 export function indexFromLatLngClamped(

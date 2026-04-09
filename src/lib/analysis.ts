@@ -1,9 +1,19 @@
+import type { ExtraTraversalEdge } from './city-connectors';
 import { gridIndex, type TerrainDataset } from './terrain';
+import { MinHeap } from './min-heap';
 
 export type AnalysisMode = 'band' | 'ceiling' | 'ascent';
 
+export interface StreetReachabilityMeta {
+  reachableRoadKm: number;
+  segmentCosts: Float32Array;
+  snappedDistanceMeters: number;
+  sourceNodeIndex: number;
+}
+
 export interface AnalysisOptions {
   activeMask: Uint8Array;
+  extraEdges: readonly ExtraTraversalEdge[];
   sourceIndex: number;
   mode: AnalysisMode;
   upperAllowance: number;
@@ -20,6 +30,7 @@ export interface AnalysisResult {
   insideAreaKm2: number;
   costs: Float32Array | null;
   maxCost: number;
+  street: StreetReachabilityMeta | null;
 }
 
 const NEIGHBORS = [
@@ -37,6 +48,7 @@ export function runElevationAnalysis(
   dataset: TerrainDataset,
   options: AnalysisOptions,
 ): AnalysisResult {
+  const extraEdgeLookup = buildExtraEdgeLookup(options.extraEdges);
   const sourceElevation = dataset.elevations[options.sourceIndex];
   const insideArea = summarizeAreas(dataset, options.activeMask, options.activeMask);
 
@@ -44,6 +56,7 @@ export function runElevationAnalysis(
     const { mask, costs } = ascentBudgetMask(
       dataset,
       options.activeMask,
+      extraEdgeLookup,
       options.sourceIndex,
       options.ascentBudget,
       options.ascentRoundTrip,
@@ -57,6 +70,7 @@ export function runElevationAnalysis(
       insideAreaKm2: insideArea.insideAreaKm2,
       costs,
       maxCost: options.ascentBudget,
+      street: null,
     };
   }
 
@@ -80,7 +94,13 @@ export function runElevationAnalysis(
   }
 
   const mask = options.contiguousOnly
-    ? connectedMask(dataset, options.activeMask, candidateMask, options.sourceIndex)
+    ? connectedMask(
+        dataset,
+        options.activeMask,
+        candidateMask,
+        extraEdgeLookup,
+        options.sourceIndex,
+      )
     : candidateMask;
   const { matchedAreaKm2, insideAreaKm2 } = summarizeAreas(
     dataset,
@@ -95,6 +115,7 @@ export function runElevationAnalysis(
     insideAreaKm2,
     costs: null,
     maxCost: 0,
+    street: null,
   };
 }
 
@@ -102,6 +123,7 @@ function connectedMask(
   dataset: TerrainDataset,
   activeMask: Uint8Array,
   candidateMask: Uint8Array,
+  extraEdgeLookup: ExtraEdgeLookup,
   sourceIndex: number,
 ) {
   if (candidateMask[sourceIndex] === 0 || activeMask[sourceIndex] === 0) {
@@ -121,24 +143,7 @@ function connectedMask(
     const cellIndex = queue[head];
     head += 1;
 
-    const row = Math.floor(cellIndex / dataset.cols);
-    const col = cellIndex - row * dataset.cols;
-
-    NEIGHBORS.forEach(([dx, dy]) => {
-      const nextCol = col + dx;
-      const nextRow = row + dy;
-
-      if (
-        nextCol < 0 ||
-        nextCol >= dataset.cols ||
-        nextRow < 0 ||
-        nextRow >= dataset.rows
-      ) {
-        return;
-      }
-
-      const nextIndex = gridIndex(dataset, nextCol, nextRow);
-
+    forEachTraversalEdge(dataset, cellIndex, extraEdgeLookup, (nextIndex) => {
       if (candidateMask[nextIndex] === 0 || mask[nextIndex] === 1) {
         return;
       }
@@ -155,13 +160,20 @@ function connectedMask(
 function ascentBudgetMask(
   dataset: TerrainDataset,
   activeMask: Uint8Array,
+  extraEdgeLookup: ExtraEdgeLookup,
   sourceIndex: number,
   ascentBudget: number,
   roundTrip: boolean,
 ) {
-  const outwardCosts = leastAscentCosts(dataset, activeMask, sourceIndex, false);
+  const outwardCosts = leastAscentCosts(
+    dataset,
+    activeMask,
+    extraEdgeLookup,
+    sourceIndex,
+    false,
+  );
   const returnCosts = roundTrip
-    ? leastAscentCosts(dataset, activeMask, sourceIndex, true)
+    ? leastAscentCosts(dataset, activeMask, extraEdgeLookup, sourceIndex, true)
     : null;
   const costs = new Float32Array(dataset.elevations.length);
   costs.fill(Number.POSITIVE_INFINITY);
@@ -192,6 +204,7 @@ function ascentBudgetMask(
 function leastAscentCosts(
   dataset: TerrainDataset,
   activeMask: Uint8Array,
+  extraEdgeLookup: ExtraEdgeLookup,
   sourceIndex: number,
   reverse: boolean,
 ) {
@@ -209,33 +222,25 @@ function leastAscentCosts(
       continue;
     }
 
-    const row = Math.floor(current.index / dataset.cols);
-    const col = current.index - row * dataset.cols;
     const currentElevation = dataset.elevations[current.index];
 
-    NEIGHBORS.forEach(([dx, dy]) => {
-      const nextCol = col + dx;
-      const nextRow = row + dy;
-
-      if (
-        nextCol < 0 ||
-        nextCol >= dataset.cols ||
-        nextRow < 0 ||
-        nextRow >= dataset.rows
-      ) {
-        return;
-      }
-
-      const nextIndex = gridIndex(dataset, nextCol, nextRow);
-
+    forEachTraversalEdge(
+      dataset,
+      current.index,
+      extraEdgeLookup,
+      (nextIndex, syntheticCost) => {
       if (activeMask[nextIndex] === 0) {
         return;
       }
 
-      const nextElevation = dataset.elevations[nextIndex];
-      const rise = reverse
-        ? Math.max(0, currentElevation - nextElevation)
-        : Math.max(0, nextElevation - currentElevation);
+      const rise =
+        syntheticCost ??
+        (() => {
+          const nextElevation = dataset.elevations[nextIndex];
+          return reverse
+            ? Math.max(0, currentElevation - nextElevation)
+            : Math.max(0, nextElevation - currentElevation);
+        })();
       const nextCost = current.cost + rise;
 
       if (nextCost >= costs[nextIndex]) {
@@ -244,10 +249,70 @@ function leastAscentCosts(
 
       costs[nextIndex] = nextCost;
       queue.push(nextIndex, nextCost);
-    });
+      },
+    );
   }
 
   return costs;
+}
+
+type ExtraEdgeLookup = Map<number, Array<{ cost: number; toIndex: number }>>;
+
+function buildExtraEdgeLookup(extraEdges: readonly ExtraTraversalEdge[]) {
+  const lookup: ExtraEdgeLookup = new Map();
+
+  extraEdges.forEach(({ fromIndex, toIndex, cost }) => {
+    pushExtraEdge(lookup, fromIndex, toIndex, cost);
+    pushExtraEdge(lookup, toIndex, fromIndex, cost);
+  });
+
+  return lookup;
+}
+
+function pushExtraEdge(
+  lookup: ExtraEdgeLookup,
+  fromIndex: number,
+  toIndex: number,
+  cost: number,
+) {
+  const edges = lookup.get(fromIndex);
+
+  if (edges) {
+    edges.push({ toIndex, cost });
+    return;
+  }
+
+  lookup.set(fromIndex, [{ toIndex, cost }]);
+}
+
+function forEachTraversalEdge(
+  dataset: TerrainDataset,
+  cellIndex: number,
+  extraEdgeLookup: ExtraEdgeLookup,
+  visit: (nextIndex: number, syntheticCost: number | null) => void,
+) {
+  const row = Math.floor(cellIndex / dataset.cols);
+  const col = cellIndex - row * dataset.cols;
+
+  NEIGHBORS.forEach(([dx, dy]) => {
+    const nextCol = col + dx;
+    const nextRow = row + dy;
+
+    if (
+      nextCol < 0 ||
+      nextCol >= dataset.cols ||
+      nextRow < 0 ||
+      nextRow >= dataset.rows
+    ) {
+      return;
+    }
+
+    visit(gridIndex(dataset, nextCol, nextRow), null);
+  });
+
+  extraEdgeLookup.get(cellIndex)?.forEach(({ toIndex, cost }) => {
+    visit(toIndex, cost);
+  });
 }
 
 function summarizeAreas(
@@ -282,92 +347,4 @@ function summarizeAreas(
     matchedAreaKm2,
     insideAreaKm2,
   };
-}
-
-interface HeapNode {
-  index: number;
-  cost: number;
-}
-
-class MinHeap {
-  private readonly nodes: HeapNode[] = [];
-
-  get size() {
-    return this.nodes.length;
-  }
-
-  push(index: number, cost: number) {
-    this.nodes.push({ index, cost });
-    this.bubbleUp(this.nodes.length - 1);
-  }
-
-  pop() {
-    const first = this.nodes[0];
-
-    if (!first) {
-      return null;
-    }
-
-    const last = this.nodes.pop();
-
-    if (this.nodes.length > 0 && last) {
-      this.nodes[0] = last;
-      this.sinkDown(0);
-    }
-
-    return first;
-  }
-
-  private bubbleUp(startIndex: number) {
-    let nodeIndex = startIndex;
-
-    while (nodeIndex > 0) {
-      const parentIndex = Math.floor((nodeIndex - 1) / 2);
-
-      if (this.nodes[parentIndex].cost <= this.nodes[nodeIndex].cost) {
-        break;
-      }
-
-      swap(this.nodes, nodeIndex, parentIndex);
-      nodeIndex = parentIndex;
-    }
-  }
-
-  private sinkDown(startIndex: number) {
-    let nodeIndex = startIndex;
-
-    while (true) {
-      const leftIndex = nodeIndex * 2 + 1;
-      const rightIndex = leftIndex + 1;
-      let smallestIndex = nodeIndex;
-
-      if (
-        leftIndex < this.nodes.length &&
-        this.nodes[leftIndex].cost < this.nodes[smallestIndex].cost
-      ) {
-        smallestIndex = leftIndex;
-      }
-
-      if (
-        rightIndex < this.nodes.length &&
-        this.nodes[rightIndex].cost < this.nodes[smallestIndex].cost
-      ) {
-        smallestIndex = rightIndex;
-      }
-
-      if (smallestIndex === nodeIndex) {
-        break;
-      }
-
-      swap(this.nodes, nodeIndex, smallestIndex);
-      nodeIndex = smallestIndex;
-    }
-  }
-}
-
-function swap<TValue>(values: TValue[], leftIndex: number, rightIndex: number) {
-  [values[leftIndex], values[rightIndex]] = [
-    values[rightIndex],
-    values[leftIndex],
-  ];
 }

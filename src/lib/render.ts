@@ -1,8 +1,10 @@
 import type { AnalysisMode, AnalysisResult } from './analysis';
+import type { StreetGraph } from './street-graph';
 import type { TerrainDataset } from './terrain';
 
 interface RenderOptions {
   mode: AnalysisMode;
+  streetGraph?: StreetGraph | null;
 }
 
 const BAND_LOW: [number, number, number] = [26, 84, 118];
@@ -18,6 +20,10 @@ export function renderAnalysisOverlay(
   analysis: AnalysisResult,
   options: RenderOptions,
 ) {
+  if (options.mode === 'ascent' && analysis.street && options.streetGraph) {
+    return renderStreetOverlay(dataset, analysis, options.streetGraph);
+  }
+
   const canvas = document.createElement('canvas');
   canvas.width = dataset.cols;
   canvas.height = dataset.rows;
@@ -54,6 +60,63 @@ export function renderAnalysisOverlay(
 
   context.putImageData(image, 0, 0);
   context.imageSmoothingEnabled = false;
+
+  return canvas.toDataURL('image/png');
+}
+
+function renderStreetOverlay(
+  dataset: TerrainDataset,
+  analysis: AnalysisResult,
+  streetGraph: StreetGraph,
+) {
+  const canvas = document.createElement('canvas');
+  canvas.width = dataset.cols;
+  canvas.height = dataset.rows;
+
+  const context = canvas.getContext('2d');
+
+  if (!context || !analysis.street) {
+    throw new Error('Canvas not available for street overlay rendering.');
+  }
+
+  context.clearRect(0, 0, dataset.cols, dataset.rows);
+  context.lineCap = 'round';
+  context.lineJoin = 'round';
+  context.lineWidth = 2.4;
+
+  for (let segmentIndex = 0; segmentIndex < streetGraph.segments.length; segmentIndex += 1) {
+    const cost = analysis.street.segmentCosts[segmentIndex];
+
+    if (!Number.isFinite(cost)) {
+      continue;
+    }
+
+    const segment = streetGraph.segments[segmentIndex];
+    const start = pointForCellIndex(dataset, streetGraph.nodes[segment.from].cellIndex);
+    const end = pointForCellIndex(dataset, streetGraph.nodes[segment.to].cellIndex);
+    const ratio =
+      analysis.maxCost <= 0 ? 0 : clamp(cost / analysis.maxCost, 0, 1);
+    const [red, green, blue] = mix(ASCENT_EASY, ASCENT_HARD, ratio);
+
+    context.strokeStyle = `rgba(${red}, ${green}, ${blue}, 0.94)`;
+    context.beginPath();
+    context.moveTo(start.x, start.y);
+    context.lineTo(end.x, end.y);
+    context.stroke();
+  }
+
+  const sourcePoint = pointForCellIndex(
+    dataset,
+    streetGraph.nodes[analysis.street.sourceNodeIndex].cellIndex,
+  );
+
+  context.fillStyle = 'rgba(245, 244, 239, 0.98)';
+  context.strokeStyle = 'rgba(16, 26, 29, 0.96)';
+  context.lineWidth = 1.6;
+  context.beginPath();
+  context.arc(sourcePoint.x, sourcePoint.y, 3.2, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
 
   return canvas.toDataURL('image/png');
 }
@@ -102,6 +165,16 @@ function ascentColor(analysis: AnalysisResult, cellIndex: number) {
     analysis.maxCost <= 0 ? 0 : clamp(cost / analysis.maxCost, 0, 1);
   const [r, g, b] = mix(ASCENT_EASY, ASCENT_HARD, ratio);
   return [r, g, b, 220] as const;
+}
+
+function pointForCellIndex(dataset: TerrainDataset, cellIndex: number) {
+  const row = Math.floor(cellIndex / dataset.cols);
+  const col = cellIndex - row * dataset.cols;
+
+  return {
+    x: col + 0.5,
+    y: row + 0.5,
+  };
 }
 
 function mix(

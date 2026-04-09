@@ -1,9 +1,11 @@
+import { applyStaticCopy, getCopy, type AppLanguage } from './i18n';
 import type { AppearancePreference } from './theme';
 
 export interface AppNodes {
   appearanceButtons: HTMLButtonElement[];
   advancedButton: HTMLButtonElement;
   advancedControls: HTMLElement;
+  areaLabel: HTMLElement;
   boundaryRadiusHint: HTMLElement;
   boundaryRadiusOutput: HTMLOutputElement;
   boundaryRadiusRange: HTMLInputElement;
@@ -12,6 +14,8 @@ export interface AppNodes {
   compactAreaStat: HTMLElement;
   compactPopulationStat: HTMLElement;
   controls: HTMLFormElement;
+  languageButtons: HTMLButtonElement[];
+  root: HTMLDivElement;
   searchForm: HTMLFormElement;
   searchInput: HTMLInputElement;
   searchButton: HTMLButtonElement;
@@ -28,11 +32,15 @@ export interface AppNodes {
   lowerHint: HTMLElement;
   budgetHint: HTMLElement;
   ascentScopeInputs: HTMLInputElement[];
+  ascentModelInputs: HTMLInputElement[];
   connectedToggle: HTMLInputElement;
+  modelNote: HTMLElement;
   statusNode: HTMLElement;
   elevationStat: HTMLElement;
   populationStat: HTMLElement;
   populationNote: HTMLElement;
+  populationTooltip: HTMLElement;
+  populationTooltipPanel: HTMLElement;
   shareStat: HTMLElement;
   areaStat: HTMLElement;
   coordsStat: HTMLElement;
@@ -42,7 +50,9 @@ export interface AppNodes {
 export function setupAppShell(
   root: HTMLDivElement,
   defaultCityQuery: string,
+  language: AppLanguage,
 ): AppNodes {
+  const copy = getCopy(language);
   const appearanceButtonsMarkup = (['system', 'light', 'dark'] as AppearancePreference[])
     .map(
       (value) => `
@@ -50,10 +60,29 @@ export function setupAppShell(
           type="button"
           class="appearance-button${value === 'system' ? ' active' : ''}"
           data-appearance="${value}"
-          aria-label="${appearanceLabel(value)} mode"
-          title="${appearanceLabel(value)} mode"
+          data-i18n-aria-label="${appearanceLabelKey(value)}"
+          data-i18n-title="${appearanceLabelKey(value)}"
         >
           <span class="appearance-icon" aria-hidden="true">${appearanceIcon(value)}</span>
+        </button>
+      `,
+    )
+    .join('');
+  const languageButtonsMarkup = ([
+    { code: 'en', label: 'EN', title: 'English' },
+    { code: 'cs', label: 'CZ', title: 'Čeština' },
+  ] as const)
+    .map(
+      ({ code, label, title }) => `
+        <button
+          type="button"
+          class="language-button${code === language ? ' active' : ''}"
+          data-language="${code}"
+          aria-label="${title}"
+          title="${title}"
+          lang="${code}"
+        >
+          ${label}
         </button>
       `,
     )
@@ -61,7 +90,11 @@ export function setupAppShell(
 
   root.innerHTML = `
     <div class="shell">
-      <div id="map" aria-label="City elevation map"></div>
+      <div
+        id="map"
+        data-i18n-aria-label="mapAriaLabel"
+        aria-label="${copy.staticText.mapAriaLabel}"
+      ></div>
       
       <div class="map-overlay">
         <!-- Top Left -->
@@ -81,11 +114,24 @@ export function setupAppShell(
                     <path d="M6.5 9.5 12 15l5.5-5.5"></path>
                   </svg>
                 </span>
-                <span class="panel-toggle-label">Collapse</span>
+                <span class="panel-toggle-label">${copy.staticText.collapse}</span>
               </button>
-              <div class="panel-appearance-picker" aria-label="Appearance">
+              <div
+                class="panel-appearance-picker"
+                data-i18n-aria-label="appearancePickerLabel"
+                aria-label="${copy.staticText.appearancePickerLabel}"
+              >
                 <div class="appearance-buttons">
                   ${appearanceButtonsMarkup}
+                </div>
+              </div>
+              <div
+                class="panel-language-picker"
+                data-i18n-aria-label="languagePickerLabel"
+                aria-label="${copy.staticText.languagePickerLabel}"
+              >
+                <div class="language-buttons">
+                  ${languageButtonsMarkup}
                 </div>
               </div>
             </div>
@@ -94,37 +140,62 @@ export function setupAppShell(
           <div class="panel-body" id="top-card-body">
             <form class="city-form" id="city-form">
               <label class="city-search" for="city-query">
-                <span class="sr-only">City search</span>
+                <span class="sr-only" data-i18n="citySearchLabel">${copy.staticText.citySearchLabel}</span>
                 <input
                   id="city-query"
                   name="city-query"
                   type="search"
                   value="${defaultCityQuery}"
-                  placeholder="Try Lisbon, Portugal"
+                  data-i18n-placeholder="citySearchPlaceholder"
+                  placeholder="${copy.staticText.citySearchPlaceholder}"
                   autocomplete="off"
                 />
               </label>
-              <button id="city-submit" class="city-submit" type="submit">Search</button>
+              <button
+                id="city-submit"
+                class="city-submit"
+                type="submit"
+                data-i18n="searchButton"
+              >${copy.staticText.searchButton}</button>
             </form>
 
             <div class="stats">
               <article>
-                <span class="stat-label">Reachable area</span>
+                <span id="area-label" class="stat-label">Reachable area</span>
                 <strong id="area-stat">…</strong>
               </article>
               <article>
-                <span class="stat-label">Start elevation</span>
+                <span class="stat-label" data-i18n="startElevationLabel">${copy.staticText.startElevationLabel}</span>
                 <strong id="elevation-stat">…</strong>
               </article>
               <article>
-                <span class="stat-label">Approx residents</span>
+                <span class="stat-label stat-label-with-tooltip">
+                  <span data-i18n="populationLabel">${copy.staticText.populationLabel}</span>
+                  <span id="population-tooltip" class="info-tooltip" hidden>
+                    <button
+                      id="population-tooltip-trigger"
+                      class="info-tooltip-trigger"
+                      type="button"
+                      data-i18n-aria-label="populationTooltipLabel"
+                      aria-describedby="population-tooltip-panel"
+                      data-i18n-title="populationTooltipLabel"
+                      aria-label="${copy.staticText.populationTooltipLabel}"
+                      title="${copy.staticText.populationTooltipLabel}"
+                    >
+                      ?
+                    </button>
+                    <span id="population-tooltip-panel" class="info-tooltip-panel" role="tooltip">
+                      ${copy.staticText.populationTooltipFallback}
+                    </span>
+                  </span>
+                </span>
                 <strong id="population-stat">—</strong>
               </article>
             </div>
 
-            <p id="rule-summary" class="rule-summary">Loading terrain…</p>
+            <p id="rule-summary" class="rule-summary">${copy.staticText.initialRuleSummary}</p>
             <p id="population-note" class="sources">
-              Population estimate unavailable.
+              ${copy.staticText.initialPopulationUnavailable}
             </p>
           </div>
 
@@ -140,7 +211,7 @@ export function setupAppShell(
             <div class="controls primary-controls">
               <label class="control" id="boundary-radius-control">
                 <div class="control-head">
-                  <span>Trip radius</span>
+                  <span data-i18n="tripRadiusLabel">${copy.staticText.tripRadiusLabel}</span>
                   <output id="boundary-radius-output" for="boundary-radius-range">5 km</output>
                 </div>
                 <input id="boundary-radius-range" type="range" min="1" max="25" step="0.5" value="5" />
@@ -149,9 +220,9 @@ export function setupAppShell(
               <label class="control" id="budget-control">
                 <div class="control-head">
                   <span id="budget-label">Round-trip uphill limit</span>
-                  <output id="budget-output" for="budget-range">30 m</output>
+                  <output id="budget-output" for="budget-range">40 m</output>
                 </div>
-                <input id="budget-range" type="range" min="0" max="200" step="5" value="30" />
+                <input id="budget-range" type="range" min="0" max="200" step="5" value="40" />
               </label>
 
               <button
@@ -160,43 +231,41 @@ export function setupAppShell(
                 type="button"
                 aria-expanded="false"
                 aria-controls="advanced-controls"
-              >
-                Advanced
-              </button>
+              >${copy.staticText.advancedButton}</button>
             </div>
 
             <div id="advanced-controls" class="controls advanced-controls hidden">
               <fieldset class="mode-switch sub-switch boundary-switch">
-                <legend>Search area</legend>
+                <legend data-i18n="searchAreaLegend">${copy.staticText.searchAreaLegend}</legend>
                 <label>
                   <input type="radio" name="boundary-scope" value="city" />
-                  <span>City limits</span>
+                  <span data-i18n="searchAreaCity">${copy.staticText.searchAreaCity}</span>
                 </label>
                 <label>
                   <input type="radio" name="boundary-scope" value="radius" checked />
-                  <span>Radius</span>
+                  <span data-i18n="searchAreaRadius">${copy.staticText.searchAreaRadius}</span>
                 </label>
               </fieldset>
 
               <fieldset class="mode-switch">
-                <legend>Terrain lens</legend>
+                <legend data-i18n="terrainLensLegend">${copy.staticText.terrainLensLegend}</legend>
                 <label>
                   <input type="radio" name="mode" value="band" />
-                  <span>Flat zone</span>
+                  <span data-i18n="terrainLensBand">${copy.staticText.terrainLensBand}</span>
                 </label>
                 <label>
                   <input type="radio" name="mode" value="ceiling" />
-                  <span>Elevation cap</span>
+                  <span data-i18n="terrainLensCeiling">${copy.staticText.terrainLensCeiling}</span>
                 </label>
                 <label>
                   <input type="radio" name="mode" value="ascent" checked />
-                  <span>Climb budget</span>
+                  <span data-i18n="terrainLensAscent">${copy.staticText.terrainLensAscent}</span>
                 </label>
               </fieldset>
 
               <label class="control" id="upper-control">
                 <div class="control-head">
-                  <span>Max rise above start</span>
+                  <span data-i18n="maxRiseLabel">${copy.staticText.maxRiseLabel}</span>
                   <output id="upper-output" for="upper-range">15 m</output>
                 </div>
                 <input id="upper-range" type="range" min="0" max="40" step="1" value="15" />
@@ -204,26 +273,38 @@ export function setupAppShell(
 
               <label class="control" id="lower-control">
                 <div class="control-head">
-                  <span>Max drop below start</span>
+                  <span data-i18n="maxDropLabel">${copy.staticText.maxDropLabel}</span>
                   <output id="lower-output" for="lower-range">15 m</output>
                 </div>
                 <input id="lower-range" type="range" min="0" max="80" step="1" value="15" />
               </label>
 
               <fieldset class="mode-switch sub-switch" id="ascent-scope-control">
-                <legend>Apply climbing limit to</legend>
+                <legend data-i18n="ascentScopeLegend">${copy.staticText.ascentScopeLegend}</legend>
                 <label>
                   <input type="radio" name="ascent-scope" value="one-way" />
-                  <span>One-way</span>
+                  <span data-i18n="ascentScopeOneWay">${copy.staticText.ascentScopeOneWay}</span>
                 </label>
                 <label>
                   <input type="radio" name="ascent-scope" value="round-trip" checked />
-                  <span>Round trip</span>
+                  <span data-i18n="ascentScopeRoundTrip">${copy.staticText.ascentScopeRoundTrip}</span>
                 </label>
               </fieldset>
 
-              <p class="note">
-                Default view: trip radius plus round-trip climb budget. Terrain only. No street network or distance penalty yet.
+              <fieldset class="mode-switch sub-switch" id="ascent-model-control">
+                <legend data-i18n="routeModelLegend">${copy.staticText.routeModelLegend}</legend>
+                <label>
+                  <input type="radio" name="ascent-model" value="terrain" checked />
+                  <span data-i18n="routeModelTerrain">${copy.staticText.routeModelTerrain}</span>
+                </label>
+                <label>
+                  <input type="radio" name="ascent-model" value="street" />
+                  <span data-i18n="routeModelStreet">${copy.staticText.routeModelStreet}</span>
+                </label>
+              </fieldset>
+
+              <p id="model-note" class="note">
+                ${copy.staticText.initialModelNote}
               </p>
             </div>
           </form>
@@ -231,12 +312,12 @@ export function setupAppShell(
 
         <!-- Bottom Left -->
         <div class="floating-panel bottom-left">
-          <div id="click-hint" class="chip">Click map to move start</div>
+          <div id="click-hint" class="chip">${copy.staticText.initialClickHint}</div>
           <div class="legend">
             <span class="legend-swatch"></span>
-            <span>reachable area</span>
+            <span data-i18n="legendReachableArea">${copy.staticText.legendReachableArea}</span>
           </div>
-          <div id="status" class="status is-loading">Loading default city…</div>
+          <div id="status" class="status is-loading">${copy.staticText.initialStatus}</div>
         </div>
       </div>
       
@@ -251,6 +332,7 @@ export function setupAppShell(
       </div>
     </div>
   `;
+  applyStaticCopy(root, language);
 
   return {
     appearanceButtons: Array.from(
@@ -258,6 +340,7 @@ export function setupAppShell(
     ),
     advancedButton: must<HTMLButtonElement>('#advanced-toggle'),
     advancedControls: must<HTMLElement>('#advanced-controls'),
+    areaLabel: must<HTMLElement>('#area-label'),
     boundaryRadiusHint: must<HTMLElement>('#boundary-radius-hint'),
     boundaryRadiusOutput: must<HTMLOutputElement>('#boundary-radius-output'),
     boundaryRadiusRange: must<HTMLInputElement>('#boundary-radius-range'),
@@ -268,6 +351,10 @@ export function setupAppShell(
     compactAreaStat: must<HTMLElement>('#compact-area-stat'),
     compactPopulationStat: must<HTMLElement>('#compact-population-stat'),
     controls: must<HTMLFormElement>('#controls'),
+    languageButtons: Array.from(
+      document.querySelectorAll<HTMLButtonElement>('[data-language]'),
+    ),
+    root,
     searchForm: must<HTMLFormElement>('#city-form'),
     searchInput: must<HTMLInputElement>('#city-query'),
     searchButton: must<HTMLButtonElement>('#city-submit'),
@@ -286,11 +373,17 @@ export function setupAppShell(
     ascentScopeInputs: Array.from(
       document.querySelectorAll<HTMLInputElement>('input[name="ascent-scope"]'),
     ),
+    ascentModelInputs: Array.from(
+      document.querySelectorAll<HTMLInputElement>('input[name="ascent-model"]'),
+    ),
     connectedToggle: must<HTMLInputElement>('#connected-toggle'),
+    modelNote: must<HTMLElement>('#model-note'),
     statusNode: must<HTMLElement>('#status'),
     elevationStat: must<HTMLElement>('#elevation-stat'),
     populationStat: must<HTMLElement>('#population-stat'),
     populationNote: must<HTMLElement>('#population-note'),
+    populationTooltip: must<HTMLElement>('#population-tooltip'),
+    populationTooltipPanel: must<HTMLElement>('#population-tooltip-panel'),
     shareStat: must<HTMLElement>('#share-stat'),
     areaStat: must<HTMLElement>('#area-stat'),
     coordsStat: must<HTMLElement>('#coords-stat'),
@@ -298,14 +391,18 @@ export function setupAppShell(
   };
 }
 
-function appearanceLabel(value: AppearancePreference) {
+export function applyShellCopy(nodes: AppNodes, language: AppLanguage) {
+  applyStaticCopy(nodes.root, language);
+}
+
+function appearanceLabelKey(value: AppearancePreference) {
   switch (value) {
     case 'light':
-      return 'Light';
+      return 'appearanceLightMode';
     case 'dark':
-      return 'Dark';
+      return 'appearanceDarkMode';
     default:
-      return 'System';
+      return 'appearanceSystemMode';
   }
 }
 
