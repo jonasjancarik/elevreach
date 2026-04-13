@@ -50,6 +50,7 @@ interface CopyCatalog {
   locale: string;
   advancedHide: string;
   boundaryDataMissing: (label: string) => string;
+  boundaryHasNoArea: (label: string) => string;
   boundaryRadiusHintCity: (cityLabel: string) => string;
   boundaryRadiusHintRadius: string;
   boundaryResponseMalformed: (label: string) => string;
@@ -169,6 +170,8 @@ const ENGLISH_MESSAGES: CopyCatalog = {
   locale: "en-US",
   advancedHide: "Hide advanced",
   boundaryDataMissing: (label: string) => `Boundary data missing for ${label}.`,
+  boundaryHasNoArea: (label: string) =>
+    `We found ${label}, but not as a city area. Try "City, Country".`,
   boundaryRadiusHintCity: (cityLabel: string) =>
     `City mode searches within the borders of ${cityLabel}.`,
   boundaryRadiusHintRadius:
@@ -317,6 +320,8 @@ const CZECH_MESSAGES: CopyCatalog = {
   locale: "cs-CZ",
   advancedHide: "Skrýt pokročilé",
   boundaryDataMissing: (label: string) => `Pro ${label} chybí data hranice.`,
+  boundaryHasNoArea: (label: string) =>
+    `Našli jsme ${label}, ale ne jako oblast města. Zkuste „Město, Země“.`,
   boundaryRadiusHintCity: (cityLabel: string) =>
     `Režim města hledá uvnitř hranic ${cityLabel}.`,
   boundaryRadiusHintRadius:
@@ -560,6 +565,12 @@ export function localizeErrorMessage(error: unknown, language: AppLanguage) {
 
   if (match) {
     return copy.boundaryResponseMalformed(match[1]);
+  }
+
+  match = error.message.match(/^Boundary has no area for (.+)\.$/);
+
+  if (match) {
+    return copy.boundaryHasNoArea(match[1]);
   }
 
   match = error.message.match(

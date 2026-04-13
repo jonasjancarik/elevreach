@@ -145,9 +145,11 @@ function normalizeBoundary(
     throw new Error(`Boundary data missing for ${fallbackLabel}.`);
   }
 
+  const geometry = coerceBoundaryGeometry(feature.geometry, fallbackLabel);
+
   return {
     ...data,
-    bbox: data.bbox ?? deriveBbox(feature.geometry),
+    bbox: data.bbox ?? deriveBbox(geometry),
   } satisfies BoundaryGeoJson;
 }
 
@@ -203,7 +205,7 @@ function applyQueryFix(query: string) {
 }
 
 interface LookupFeature {
-  geojson?: BoundaryGeoJson['features'][number]['geometry'];
+  geojson?: unknown;
   boundingbox?: string[];
   display_name?: string;
   name?: string;
@@ -223,6 +225,7 @@ function buildNominatimUrl(
     return `https://nominatim.openstreetmap.org/lookup?${params.toString()}`;
   }
 
+  params.set('featureType', 'city');
   params.set('q', fixedQuery.canonicalQuery);
   return `https://nominatim.openstreetmap.org/search?${params.toString()}`;
 }
@@ -242,6 +245,8 @@ function jsonv2ToBoundary(data: LookupResponse, fallbackLabel: string): Boundary
     };
   }
 
+  const geometry = coerceBoundaryGeometry(first.geojson, fallbackLabel);
+
   const bbox =
     first.boundingbox && first.boundingbox.length === 4
       ? ([
@@ -250,7 +255,7 @@ function jsonv2ToBoundary(data: LookupResponse, fallbackLabel: string): Boundary
           Number(first.boundingbox[3]),
           Number(first.boundingbox[1]),
         ] as [number, number, number, number])
-      : deriveBbox(first.geojson);
+      : deriveBbox(geometry);
 
   return {
     type: 'FeatureCollection',
@@ -258,7 +263,7 @@ function jsonv2ToBoundary(data: LookupResponse, fallbackLabel: string): Boundary
     features: [
       {
         type: 'Feature',
-        geometry: first.geojson,
+        geometry,
         properties: {
           display_name: first.display_name,
           name: first.name,
@@ -276,8 +281,16 @@ function readCache(cacheKey: string) {
       return null;
     }
 
-    return JSON.parse(raw) as LoadedBoundary;
+    const parsed = JSON.parse(raw);
+
+    if (!isLoadedBoundary(parsed)) {
+      window.localStorage.removeItem(cacheKey);
+      return null;
+    }
+
+    return parsed;
   } catch {
+    window.localStorage.removeItem(cacheKey);
     return null;
   }
 }
@@ -288,4 +301,116 @@ function writeCache(cacheKey: string, loaded: LoadedBoundary) {
   } catch {
     // Ignore quota/privacy failures; the app still works uncached.
   }
+}
+
+function coerceBoundaryGeometry(
+  geometry: unknown,
+  fallbackLabel: string,
+): BoundaryGeometry {
+  if (isBoundaryGeometry(geometry)) {
+    return geometry;
+  }
+
+  throw new Error(`Boundary has no area for ${fallbackLabel}.`);
+}
+
+function isBoundaryGeometry(geometry: unknown): geometry is BoundaryGeometry {
+  if (!geometry || typeof geometry !== 'object') {
+    return false;
+  }
+
+  const candidate = geometry as {
+    type?: unknown;
+    coordinates?: unknown;
+  };
+
+  if (candidate.type === 'Polygon') {
+    return isPolygon(candidate.coordinates);
+  }
+
+  if (candidate.type === 'MultiPolygon') {
+    return (
+      Array.isArray(candidate.coordinates) &&
+      candidate.coordinates.every((polygon) => isPolygon(polygon))
+    );
+  }
+
+  return false;
+}
+
+function isPolygon(value: unknown): value is Polygon {
+  return Array.isArray(value) && value.every((ring) => isRing(ring));
+}
+
+function isRing(value: unknown): value is Ring {
+  return Array.isArray(value) && value.every((point) => isCoordinate(point));
+}
+
+function isCoordinate(value: unknown): value is [number, number] {
+  return (
+    Array.isArray(value) &&
+    value.length >= 2 &&
+    typeof value[0] === 'number' &&
+    Number.isFinite(value[0]) &&
+    typeof value[1] === 'number' &&
+    Number.isFinite(value[1])
+  );
+}
+
+function isLoadedBoundary(value: unknown): value is LoadedBoundary {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const loaded = value as {
+    boundary?: unknown;
+    label?: unknown;
+    query?: unknown;
+    source?: unknown;
+  };
+
+  return (
+    typeof loaded.label === 'string' &&
+    typeof loaded.query === 'string' &&
+    (loaded.source === 'bundled' || loaded.source === 'cache' || loaded.source === 'remote') &&
+    isBoundaryGeoJson(loaded.boundary)
+  );
+}
+
+function isBoundaryGeoJson(value: unknown): value is BoundaryGeoJson {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as {
+    type?: unknown;
+    bbox?: unknown;
+    features?: unknown;
+  };
+
+  if (
+    candidate.type !== 'FeatureCollection' ||
+    !isBbox(candidate.bbox) ||
+    !Array.isArray(candidate.features) ||
+    candidate.features.length === 0
+  ) {
+    return false;
+  }
+
+  const firstFeature = candidate.features[0];
+
+  if (!firstFeature || typeof firstFeature !== 'object') {
+    return false;
+  }
+
+  const geometry = (firstFeature as { geometry?: unknown }).geometry;
+  return isBoundaryGeometry(geometry);
+}
+
+function isBbox(value: unknown): value is [number, number, number, number] {
+  return (
+    Array.isArray(value) &&
+    value.length === 4 &&
+    value.every((item) => typeof item === 'number' && Number.isFinite(item))
+  );
 }
