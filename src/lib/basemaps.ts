@@ -35,12 +35,20 @@ const BASEMAPS: Record<BasemapTone, BasemapDefinition> = {
   },
 };
 
+// CARTO serves keyed raster tiles only up to zoom 18 (higher zooms return 403).
+const CARTO_MAX_TILE_ZOOM = 18;
+
 export function createBasemapLayer(tone: BasemapTone) {
   const basemap = BASEMAPS[tone];
+  const detectRetina = true;
+  // With detectRetina on a high-DPI screen, Leaflet requests tiles one zoom
+  // level deeper than the map zoom, so cap the native zoom one level lower.
+  const retinaZoomOffset = detectRetina && L.Browser.retina ? 1 : 0;
 
   return L.tileLayer(basemap.url, {
     attribution: basemap.attribution,
-    detectRetina: true,
+    detectRetina,
     maxZoom: basemap.maxZoom,
+    maxNativeZoom: CARTO_MAX_TILE_ZOOM - retinaZoomOffset,
   });
 }
