@@ -73,6 +73,16 @@ Broaden street mode beyond radius scope, cache graph fetches more aggressively, 
 
 Deploys automatically from GitHub Actions on pushes to `main`.
 
+## Basemap API Key
+
+The light and dark basemaps come from CARTO, which requires a free API key on every tile request. Without one, the map shows an "API key required" watermark.
+
+1. Request a key at <https://carto.com/basemaps/apikey> (free for non-commercial use up to 5M requests a month).
+2. For the deployed site, add it as a GitHub repository variable named `VITE_CARTO_KEY` (Settings → Secrets and variables → Actions → Variables), then rerun the Deploy Pages workflow.
+3. For local development, put `VITE_CARTO_KEY=your-key` in `.env.local` (git-ignored) and restart the dev server.
+
+The key ends up in the built JavaScript and in every tile URL, so it is public by design. Keep the OpenStreetMap and CARTO attribution visible.
+
 ## Regenerate Prague Population Layer
 
 ```bash
